@@ -1,0 +1,26 @@
+name: stopfire_mobile
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_secure_storage: ^9.2.2
+  http: ^1.2.2
+  provider: ^6.1.5+1
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.1
+  flutter_map_location_marker: ^8.0.5
+  geolocator: ^11.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
