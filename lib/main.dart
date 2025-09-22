@@ -1,25 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:stopfire_mobile/core/network/http_client.dart';
-import 'package:stopfire_mobile/core/storage/token_storage.dart';
-import 'package:stopfire_mobile/features/auth/data/datasources/auth_remote_data_source.dart';
-import 'package:stopfire_mobile/features/auth/data/repositories/auth_repository_impl.dart';
-import 'package:stopfire_mobile/features/auth/domain/usecases/login_usecase.dart';
-import 'package:stopfire_mobile/features/auth/presentation/pages/login_page.dart';
-import 'package:stopfire_mobile/features/auth/presentation/state/auth_provider.dart';
-import 'package:stopfire_mobile/features/stations/data/datasources/station_remote_data_source.dart';
-import 'package:stopfire_mobile/features/stations/data/repositories/station_repository_impl.dart';
-import 'package:stopfire_mobile/features/stations/domain/usecases/get_stations_usecase.dart';
-import 'package:stopfire_mobile/features/stations/presentation/pages/stations_map_page.dart';
-import 'package:stopfire_mobile/features/stations/presentation/state/station_provider.dart';
-import 'package:stopfire_mobile/features/account/data/datasources/account_remote_data_source.dart';
-import 'package:stopfire_mobile/features/account/data/repositories/account_repository_impl.dart';
-import 'package:stopfire_mobile/features/account/domain/usecases/get_account_usecase.dart';
-import 'package:stopfire_mobile/features/account/presentation/state/account_provider.dart';
+import 'package:stopfire_mobile/index.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final httpClient = AppHttpClient();
+
   final remote = AuthRemoteDataSource(httpClient);
   final storage = SecureTokenStorage();
   final repository = AuthRepositoryImpl(remote: remote, storage: storage);
@@ -30,12 +16,19 @@ void main() async {
   final accountRemote = AccountRemoteDataSource(httpClient);
   final accountRepository = AccountRepositoryImpl(remote: accountRemote);
   final getAccountUseCase = GetAccountUseCase(accountRepository);
+  final regRemote = RegisterRemoteDataSource(httpClient);
+  final regRepository = RegisterRepositoryImpl(remote: regRemote);
+  final startRegUseCase = StartRegistrationUseCase(regRepository);
+  final verifyRegUseCase = VerifyRegistrationUseCase(regRepository);
 
   runApp(MainApp(
     repository: repository,
     loginUseCase: loginUseCase,
     getStationsUseCase: getStationsUseCase,
     getAccountUseCase: getAccountUseCase,
+    // NUEVO
+    startRegUseCase: startRegUseCase,
+    verifyRegUseCase: verifyRegUseCase,
   ));
 }
 
@@ -44,13 +37,19 @@ class MainApp extends StatelessWidget {
   final LoginUseCase loginUseCase;
   final GetStationsUseCase getStationsUseCase;
   final GetAccountUseCase getAccountUseCase;
+  // NUEVO
+  final StartRegistrationUseCase startRegUseCase;
+  final VerifyRegistrationUseCase verifyRegUseCase;
 
   const MainApp({
     super.key,
     required this.repository,
     required this.loginUseCase,
     required this.getStationsUseCase,
-    required this.getAccountUseCase, 
+    required this.getAccountUseCase,
+    // NUEVO
+    required this.startRegUseCase,
+    required this.verifyRegUseCase,
   });
 
   @override
@@ -65,6 +64,12 @@ class MainApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => AccountProvider(getAccountUseCase: getAccountUseCase),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => RegisterProvider(
+            startUseCase: startRegUseCase,
+            verifyUseCase: verifyRegUseCase,
+          ),
         ),
       ],
       child: MaterialApp(

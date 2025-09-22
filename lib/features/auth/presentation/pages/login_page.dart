@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stopfire_mobile/features/auth/presentation/state/auth_provider.dart';
 import 'package:stopfire_mobile/features/stations/presentation/pages/stations_map_page.dart';
+import 'package:stopfire_mobile/features/register/presentation/pages/register_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -115,7 +116,22 @@ class _LoginPageState extends State<LoginPage> {
                                 height: 22,
                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                               )
-                            : const Text('Entrar'),
+                            : const Text('Iniciar Sesión'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton(
+                        onPressed: auth.isLoading
+                            ? null
+                            : () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const RegisterPage()),
+                                );
+                              },
+                        child: const Text('Crear cuenta'),
                       ),
                     ),
                     if (auth.error != null) ...[
