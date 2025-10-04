@@ -15,9 +15,7 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _correoCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
-
-  bool _obscure = true; // <- NUEVO
-
+  bool _obscure = true; 
   @override
   void dispose() {
     _correoCtrl.dispose();

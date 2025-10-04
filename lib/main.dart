@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stopfire_mobile/index.dart';
+import 'package:stopfire_mobile/features/reports/data/datasources/report_remote_data_source.dart';
+import 'package:stopfire_mobile/features/reports/data/repositories/report_repository_impl.dart';
+import 'package:stopfire_mobile/features/reports/domain/usecases/create_report_usecase.dart';
+import 'package:stopfire_mobile/features/reports/domain/usecases/get_accepted_reports_usecase.dart';
+import 'package:stopfire_mobile/features/reports/presentation/state/report_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,15 +25,20 @@ void main() async {
   final regRepository = RegisterRepositoryImpl(remote: regRemote);
   final startRegUseCase = StartRegistrationUseCase(regRepository);
   final verifyRegUseCase = VerifyRegistrationUseCase(regRepository);
+  final reportRemote = ReportRemoteDataSource();
+  final reportRepository = ReportRepositoryImpl(remote: reportRemote);
+  final createReportUseCase = CreateReportUseCase(reportRepository);
+  final getAcceptedReportsUseCase = GetAcceptedReportsUseCase(reportRepository);
 
   runApp(MainApp(
     repository: repository,
     loginUseCase: loginUseCase,
     getStationsUseCase: getStationsUseCase,
     getAccountUseCase: getAccountUseCase,
-    // NUEVO
     startRegUseCase: startRegUseCase,
     verifyRegUseCase: verifyRegUseCase,
+    createReportUseCase: createReportUseCase,
+    getAcceptedReportsUseCase: getAcceptedReportsUseCase,
   ));
 }
 
@@ -37,9 +47,10 @@ class MainApp extends StatelessWidget {
   final LoginUseCase loginUseCase;
   final GetStationsUseCase getStationsUseCase;
   final GetAccountUseCase getAccountUseCase;
-  // NUEVO
   final StartRegistrationUseCase startRegUseCase;
   final VerifyRegistrationUseCase verifyRegUseCase;
+  final CreateReportUseCase createReportUseCase;
+  final GetAcceptedReportsUseCase getAcceptedReportsUseCase;
 
   const MainApp({
     super.key,
@@ -47,9 +58,10 @@ class MainApp extends StatelessWidget {
     required this.loginUseCase,
     required this.getStationsUseCase,
     required this.getAccountUseCase,
-    // NUEVO
     required this.startRegUseCase,
     required this.verifyRegUseCase,
+    required this.createReportUseCase,
+    required this.getAcceptedReportsUseCase,
   });
 
   @override
@@ -69,6 +81,12 @@ class MainApp extends StatelessWidget {
           create: (_) => RegisterProvider(
             startUseCase: startRegUseCase,
             verifyUseCase: verifyRegUseCase,
+          ),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => ReportProvider(
+            createReportUseCase: createReportUseCase,
+            getAcceptedReportsUseCase: getAcceptedReportsUseCase,
           ),
         ),
       ],

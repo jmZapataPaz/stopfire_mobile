@@ -24,7 +24,7 @@ class AccountModel {
     return AccountModel(
       id: parseId(json['id'] ?? json['userId'] ?? json['Id'] ?? json['ID']),
       nombre: (json['nombre'] ?? json['name'])?.toString(),
-      apellido: (json['apellido'] ?? json['lastName'])?.toString(), // <- NUEVO
+      apellido: (json['apellido'] ?? json['lastName'])?.toString(),
       email: (json['email'] ?? json['correo'])?.toString(),
       celular: (json['celular'] ?? json['telefono'])?.toString(),
     );

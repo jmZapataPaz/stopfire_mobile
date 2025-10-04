@@ -7,6 +7,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:stopfire_mobile/features/stations/presentation/state/station_provider.dart';
 import 'package:stopfire_mobile/features/stations/domain/entities/station.dart';
 import 'package:stopfire_mobile/features/account/presentation/pages/account_page.dart';
+import 'package:stopfire_mobile/features/reports/presentation/pages/create_report_sheet.dart';
+import 'package:stopfire_mobile/features/reports/presentation/state/report_provider.dart';
+import 'package:stopfire_mobile/features/auth/presentation/state/auth_provider.dart';
 
 class StationsMapPage extends StatefulWidget {
   const StationsMapPage({super.key});
@@ -25,6 +28,12 @@ class _StationsMapPageState extends State<StationsMapPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<StationProvider>().loadStations();
       _centerToUserLocationOnce();
+      final token = context.read<AuthProvider>().token;
+      if (token != null && token.isNotEmpty) {
+        final rp = context.read<ReportProvider>();
+        rp.loadAccepted(token: token);
+        rp.startAcceptedAutoRefresh(token: token, interval: const Duration(seconds: 30));
+      }
     });
   }
 
@@ -83,10 +92,36 @@ class _StationsMapPageState extends State<StationsMapPage> {
     );
   }
 
+  void _openCreateReport() async {
+    try { context.read<ReportProvider>().reset(); } catch (_) {}
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const CreateReportSheet(),
+    );
+    if (ok == true && mounted) {
+      final token = context.read<AuthProvider>().token;
+      if (token != null && token.isNotEmpty) {
+        context.read<ReportProvider>().loadAccepted(token: token);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reporte enviado')),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    try { context.read<ReportProvider>().stopAcceptedAutoRefresh(); } catch (_) {}
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<StationProvider>(
       builder: (context, sp, _) {
+        final rp = context.watch<ReportProvider>();
         final hasData = sp.stations.isNotEmpty;
         final polygons = <Polygon>[];
         final circleMarkers = <CircleMarker>[];
@@ -123,56 +158,86 @@ class _StationsMapPageState extends State<StationsMapPage> {
             )
             .toList();
 
+        final incidentMarkers = rp.accepted
+            .where((r) => r.lat != null && r.lon != null)
+            .map(
+              (r) => Marker(
+                point: LatLng(r.lat!, r.lon!),
+                width: 44,
+                height: 44,
+                child: const Tooltip(
+                  message: 'Incidente aceptado',
+                  child: Icon(Icons.warning_amber_rounded, color: Colors.red, size: 36),
+                ),
+              ),
+            )
+            .toList();
+
         final center = hasData ? LatLng(sp.stations.first.lat, sp.stations.first.lon) : _defaultCenter();
 
         return Scaffold(
-          body: FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: center,
-              initialZoom: 12,
-              interactionOptions: InteractionOptions(
-                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-              ),
-            ),
+          body: Stack(
             children: [
-              TileLayer(
-                urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.stopfire_mobile',
-                subdomains: const ['a', 'b', 'c'],
-                retinaMode: MediaQuery.of(context).devicePixelRatio > 1.0,
-              ),
-              CurrentLocationLayer(
-                style: LocationMarkerStyle(
-                  marker: DefaultLocationMarker(
-                    color: Colors.blueAccent,
-                    child: Icon(Icons.my_location, color: Colors.white, size: 16),
+              FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: center,
+                  initialZoom: 12,
+                  interactionOptions: InteractionOptions(
+                    flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                   ),
-                  markerSize: Size(32, 32),
-                  accuracyCircleColor: Color(0x330000FF),
                 ),
-              ),
-              if (polygons.isNotEmpty) PolygonLayer(polygons: polygons),
-              if (circleMarkers.isNotEmpty) CircleLayer(circles: circleMarkers),
-              if (markers.isNotEmpty) MarkerLayer(markers: markers),
-              if (sp.loading)
-                const Align(
-                  alignment: Alignment.topCenter,
-                  child: LinearProgressIndicator(minHeight: 3),
-                ),
-              if (sp.error != null && !sp.loading)
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: Container(
-                    margin: const EdgeInsets.all(12),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.example.stopfire_mobile',
+                    subdomains: const ['a', 'b', 'c'],
+                    retinaMode: MediaQuery.of(context).devicePixelRatio > 1.0,
+                  ),
+                  CurrentLocationLayer(
+                    style: LocationMarkerStyle(
+                      marker: DefaultLocationMarker(
+                        color: Colors.blueAccent,
+                        child: Icon(Icons.my_location, color: Colors.white, size: 16),
+                      ),
+                      markerSize: Size(32, 32),
+                      accuracyCircleColor: Color(0x330000FF),
                     ),
-                    child: Text(sp.error!, style: const TextStyle(color: Colors.red)),
                   ),
+                  if (polygons.isNotEmpty) PolygonLayer(polygons: polygons),
+                  if (circleMarkers.isNotEmpty) CircleLayer(circles: circleMarkers),
+                  if (markers.isNotEmpty) MarkerLayer(markers: markers),
+                  if (incidentMarkers.isNotEmpty) MarkerLayer(markers: incidentMarkers),
+                  if (sp.loading)
+                    const Align(
+                      alignment: Alignment.topCenter,
+                      child: LinearProgressIndicator(minHeight: 3),
+                    ),
+                  if (sp.error != null && !sp.loading)
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: Container(
+                        margin: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(sp.error!, style: const TextStyle(color: Colors.red)),
+                      ),
+                    ),
+                ],
+              ),
+              Positioned(
+                left: 12,
+                bottom: 12 + MediaQuery.of(context).padding.bottom,
+                child: FloatingActionButton(
+                  heroTag: 'fab_report_bottom_left',
+                  backgroundColor: Colors.deepOrange,
+                  onPressed: _openCreateReport,
+                  child: const Icon(Icons.warning_amber_rounded, color: Colors.white),
                 ),
+              ),
             ],
           ),
           floatingActionButton: Column(
@@ -182,12 +247,8 @@ class _StationsMapPageState extends State<StationsMapPage> {
                 heroTag: 'fit',
                 onPressed: () {
                   final allPoints = <LatLng>[];
-                  for (final p in polygons) {
-                    allPoints.addAll(p.points);
-                  }
-                  for (final m in markers) {
-                    allPoints.add(m.point);
-                  }
+                  for (final p in polygons) { allPoints.addAll(p.points); }
+                  for (final m in markers) { allPoints.add(m.point); }
                   if (allPoints.isNotEmpty) {
                     final fit = CameraFit.bounds(
                       bounds: LatLngBounds.fromPoints(allPoints),
