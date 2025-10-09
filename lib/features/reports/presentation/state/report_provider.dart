@@ -140,4 +140,13 @@ class ReportProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
+  void removeAcceptedById(int id) {
+    final before = _accepted.length;
+    _accepted = _accepted.where((r) => r.id != id).toList();
+    if (_accepted.length != before) {
+      notifyListeners();
+      print('[REPORT][LIST] removido por mitigación id=$id, quedan=${_accepted.length}');
+    }
+  }
 }

@@ -6,10 +6,12 @@ import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:stopfire_mobile/features/stations/presentation/state/station_provider.dart';
 import 'package:stopfire_mobile/features/stations/domain/entities/station.dart';
-import 'package:stopfire_mobile/features/account/presentation/pages/account_page.dart';
 import 'package:stopfire_mobile/features/reports/presentation/pages/create_report_sheet.dart';
 import 'package:stopfire_mobile/features/reports/presentation/state/report_provider.dart';
 import 'package:stopfire_mobile/features/auth/presentation/state/auth_provider.dart';
+import 'package:stopfire_mobile/features/shared/widgets/app_bottom_nav_bar.dart';
+import 'package:stopfire_mobile/core/config/app_config.dart';
+import 'package:stopfire_mobile/core/realtime/notificaciones_hub.dart';
 
 class StationsMapPage extends StatefulWidget {
   const StationsMapPage({super.key});
@@ -25,14 +27,24 @@ class _StationsMapPageState extends State<StationsMapPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<StationProvider>().loadStations();
       _centerToUserLocationOnce();
-      final token = context.read<AuthProvider>().token;
+
+      final auth = context.read<AuthProvider>();
+      auth.ensureRoleParsed();
+      final token = auth.token;
+
       if (token != null && token.isNotEmpty) {
         final rp = context.read<ReportProvider>();
-        rp.loadAccepted(token: token);
-        rp.startAcceptedAutoRefresh(token: token, interval: const Duration(seconds: 30));
+        await rp.loadAccepted(token: token);
+        NotificacionesHub.instance.setReloadAccepted(() async {
+          await rp.loadAccepted(token: token);
+        });
+        await NotificacionesHub.instance.ensureConnected(
+          baseUrl: AppConfig.baseUrl,
+          token: token,
+        );
       }
     });
   }
@@ -240,6 +252,7 @@ class _StationsMapPageState extends State<StationsMapPage> {
               ),
             ],
           ),
+          bottomNavigationBar: const AppBottomNavBar(selectedIndex: 0),
           floatingActionButton: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -261,22 +274,31 @@ class _StationsMapPageState extends State<StationsMapPage> {
               ),
             ],
           ),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: 0,
-            destinations: const [
-              NavigationDestination(icon: Icon(Icons.map), label: 'Mapa'),
-              NavigationDestination(icon: Icon(Icons.person), label: 'Cuenta'),
-            ],
-            onDestinationSelected: (i) {
-              if (i == 1) {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const AccountPage()),
-                );
-              }
-            },
-          ),
         );
       },
+    );
+  }
+}
+
+class _SingleNavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  const _SingleNavItem({required this.icon, required this.label, this.selected = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? Theme.of(context).colorScheme.primary : Theme.of(context).iconTheme.color;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(color: color, fontSize: 12)),
+        ],
+      ),
     );
   }
 }

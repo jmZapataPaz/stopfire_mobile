@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:stopfire_mobile/features/auth/domain/repositories/auth_repository.dart';
 import 'package:stopfire_mobile/features/auth/domain/usecases/login_usecase.dart';
 import 'package:stopfire_mobile/core/network/http_client.dart';
+import 'package:stopfire_mobile/core/utils/jwt_decoder.dart';
 
 class AuthProvider extends ChangeNotifier {
   final LoginUseCase loginUseCase;
@@ -36,6 +37,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       final t = await loginUseCase(correo, contrasena);
       token = t;
+      ensureRoleParsed();
       debugPrint('AuthProvider.login <- success, token saved: ${t.isNotEmpty}');
       return true;
     } on HttpFailure catch (e, st) {
@@ -62,5 +64,42 @@ class AuthProvider extends ChangeNotifier {
     await repository.logout();
     token = null;
     notifyListeners();
+  }
+
+  int? _roleId;
+  int? get roleId => _roleId;
+  bool get isBombero => _roleId == 2;
+  bool get isCiudadano => _roleId == 3;
+
+  void setRoleId(int? v) {
+    if (_roleId == v) return;
+    _roleId = v;
+    notifyListeners();
+  }
+  void ensureRoleParsed() {
+    if (_roleId != null) return;
+    final t = token;
+    if (t == null || t.isEmpty) return;
+    final rid = _extractRoleIdFromToken(t);
+    if (rid != null) {
+      _roleId = rid;
+      notifyListeners();
+    }
+  }
+
+  int? _extractRoleIdFromToken(String jwt) {
+    try {
+      final claims = JwtDecoder.decode(jwt);
+      final v = claims['rol_id'] ??
+          claims['role_id'] ??
+          claims['rolId'] ??
+          claims['roleId'] ??
+          claims['RolId'] ??
+          claims['RoleId'] ??
+          claims['rol'];
+      if (v is int) return v;
+      if (v is String) return int.tryParse(v);
+    } catch (_) {}
+    return null;
   }
 }

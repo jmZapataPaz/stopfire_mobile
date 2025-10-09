@@ -4,6 +4,7 @@ class Account {
   final String? apellido;
   final String? email;
   final String? celular;
+  final int? rolId;
 
   const Account({
     required this.id,
@@ -11,5 +12,6 @@ class Account {
     this.apellido,
     this.email,
     this.celular,
+    this.rolId,
   });
 }
