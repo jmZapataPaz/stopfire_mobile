@@ -11,7 +11,9 @@ import 'package:stopfire_mobile/features/reports/presentation/state/report_provi
 import 'package:stopfire_mobile/features/auth/presentation/state/auth_provider.dart';
 import 'package:stopfire_mobile/features/shared/widgets/app_bottom_nav_bar.dart';
 import 'package:stopfire_mobile/core/config/app_config.dart';
-import 'package:stopfire_mobile/core/realtime/notificaciones_hub.dart';
+import 'dart:convert';
+import 'dart:async';
+import 'package:stopfire_mobile/core/signalr/notificaciones_hub.dart';
 
 class StationsMapPage extends StatefulWidget {
   const StationsMapPage({super.key});
@@ -23,6 +25,29 @@ class StationsMapPage extends StatefulWidget {
 class _StationsMapPageState extends State<StationsMapPage> {
   final MapController _mapController = MapController();
   bool _centeredToUserLocationOnce = false;
+  bool _canCreateReportFab = true;
+  StreamSubscription? _srSub;
+  StreamSubscription? _srStateSub; 
+
+  Map<String, dynamic> _decodeJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return {};
+      final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      return (jsonDecode(payload) as Map<String, dynamic>);
+    } catch (_) { return {}; }
+  }
+
+  bool _isBomberoToken(String? token) {
+    if (token == null || token.isEmpty) return false;
+    final p = _decodeJwt(token);
+    final v = p['rol_id'] ?? p['role_id'] ?? p['rolId'] ?? p['roleId'] ?? p['rol'] ?? p['role'];
+    if (v == null) return false;
+    if (v is num) return v.toInt() == 2;
+    final s = v.toString().toUpperCase();
+    if (int.tryParse(s) == 2) return true;
+    return s.contains('BOMBERO');
+  }
 
   @override
   void initState() {
@@ -36,15 +61,32 @@ class _StationsMapPageState extends State<StationsMapPage> {
       final token = auth.token;
 
       if (token != null && token.isNotEmpty) {
+        final isBombero = _isBomberoToken(token);
+        if (mounted) setState(() { _canCreateReportFab = !isBombero; });
+
         final rp = context.read<ReportProvider>();
-        await rp.loadAccepted(token: token);
-        NotificacionesHub.instance.setReloadAccepted(() async {
+
+        if (isBombero) {
           await rp.loadAccepted(token: token);
-        });
-        await NotificacionesHub.instance.ensureConnected(
-          baseUrl: AppConfig.baseUrl,
-          token: token,
-        );
+
+          try {
+            await NotificacionesHub.instance.ensureConnected(
+              baseUrl: AppConfig.baseUrl,
+              token: token,
+            );
+          } catch (_) {}
+          _srSub ??= NotificacionesHub.instance.incomingReports.listen((_) async {
+            try { await rp.loadAccepted(token: token); } catch (_) {}
+          });
+          _srStateSub ??= NotificacionesHub.instance.estadoChanges.listen((e) async {
+            try { await rp.loadAccepted(token: token); } catch (_) {}
+          });
+        } else {
+          await _srSub?.cancel();
+          await _srStateSub?.cancel();
+          _srSub = null;
+          _srStateSub = null;
+        }
       }
     });
   }
@@ -125,6 +167,8 @@ class _StationsMapPageState extends State<StationsMapPage> {
 
   @override
   void dispose() {
+    _srSub?.cancel();
+    _srStateSub?.cancel(); 
     try { context.read<ReportProvider>().stopAcceptedAutoRefresh(); } catch (_) {}
     super.dispose();
   }
@@ -240,6 +284,7 @@ class _StationsMapPageState extends State<StationsMapPage> {
                     ),
                 ],
               ),
+              if (_canCreateReportFab) 
               Positioned(
                 left: 12,
                 bottom: 12 + MediaQuery.of(context).padding.bottom,

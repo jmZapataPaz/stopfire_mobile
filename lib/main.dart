@@ -1,11 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stopfire_mobile/index.dart';
+import 'package:stopfire_mobile/core/navigation/app_navigator.dart';
+import 'package:stopfire_mobile/core/signalr/notificaciones_hub.dart';
 import 'package:stopfire_mobile/features/reports/data/datasources/report_remote_data_source.dart';
 import 'package:stopfire_mobile/features/reports/data/repositories/report_repository_impl.dart';
 import 'package:stopfire_mobile/features/reports/domain/usecases/create_report_usecase.dart';
 import 'package:stopfire_mobile/features/reports/domain/usecases/get_accepted_reports_usecase.dart';
+import 'package:stopfire_mobile/features/reports/presentation/services/incoming_report_handler.dart';
 import 'package:stopfire_mobile/features/reports/presentation/state/report_provider.dart';
+import 'package:stopfire_mobile/features/reports/presentation/widgets/global_signalr_connector.dart';
+import 'package:stopfire_mobile/core/config/app_config.dart'; // NUEVO
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -96,6 +103,8 @@ class MainApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
           useMaterial3: true,
         ),
+        navigatorKey: appNavigatorKey,
+        builder: (context, child) => GlobalSignalRConnector(child: child!),
         home: const _SplashGate(),
       ),
     );
@@ -119,14 +128,17 @@ class _SplashGateState extends State<_SplashGate> {
   }
 
   @override
+  void dispose() {
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder(
       future: _init,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         final hasToken = context.read<AuthProvider>().token != null;
         return hasToken ? const StationsMapPage() : const LoginPage();

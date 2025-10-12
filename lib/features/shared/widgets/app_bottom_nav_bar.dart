@@ -11,7 +11,7 @@ class AppBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    auth.ensureRoleParsed();
+
     final acc = context.watch<AccountProvider?>();
     final accRole = acc?.account?.rolId;
     if (auth.roleId == null && accRole != null) {
@@ -23,19 +23,25 @@ class AppBottomNavBar extends StatelessWidget {
     final isBombero = auth.roleId == 2;
 
     if (isBombero) {
-      return BottomAppBar(
-        color: Theme.of(context).colorScheme.surface,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              _SingleNavItem(icon: Icons.map, label: 'Mapa', selected: true),
-            ],
+      return SafeArea(
+        top: false,
+        child: BottomAppBar(
+          color: Theme.of(context).colorScheme.surface,
+          child: SizedBox(
+            height: kBottomNavigationBarHeight, 
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  _SingleNavItem(icon: Icons.map, label: 'Mapa', selected: true, compact: true),
+                ],
+              ),
+            ),
           ),
         ),
       );
     }
+
     final idx = selectedIndex.clamp(0, 1);
     return NavigationBar(
       selectedIndex: idx,
@@ -51,26 +57,38 @@ class AppBottomNavBar extends StatelessWidget {
         }
       },
     );
-    }
+  }
 }
 
 class _SingleNavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
-  const _SingleNavItem({required this.icon, required this.label, this.selected = false});
+  final bool compact;
+  const _SingleNavItem({
+    required this.icon,
+    required this.label,
+    this.selected = false,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final color = selected ? Theme.of(context).colorScheme.primary : Theme.of(context).iconTheme.color;
+    final vPad = compact ? 5.0 : 8.0; // un poco menor
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 24, vertical: vPad),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color),
+          Icon(icon, color: color, size: 24),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: color, fontSize: 12)),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: color, fontSize: 12, height: 1.0), // altura de línea compacta
+          ),
         ],
       ),
     );
