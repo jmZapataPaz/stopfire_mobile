@@ -63,29 +63,25 @@ class _StationsMapPageState extends State<StationsMapPage> {
       if (token != null && token.isNotEmpty) {
         final isBombero = _isBomberoToken(token);
         if (mounted) setState(() { _canCreateReportFab = !isBombero; });
-
         final rp = context.read<ReportProvider>();
+        await rp.loadAccepted(token: token);
 
+        try {
+          await NotificacionesHub.instance.ensureConnected(
+            baseUrl: AppConfig.baseUrl,
+            token: token,
+          );
+        } catch (_) {}
+        _srStateSub ??= NotificacionesHub.instance.estadoChanges.listen((e) async {
+          try { await rp.loadAccepted(token: token); } catch (_) {}
+        });
         if (isBombero) {
-          await rp.loadAccepted(token: token);
-
-          try {
-            await NotificacionesHub.instance.ensureConnected(
-              baseUrl: AppConfig.baseUrl,
-              token: token,
-            );
-          } catch (_) {}
           _srSub ??= NotificacionesHub.instance.incomingReports.listen((_) async {
-            try { await rp.loadAccepted(token: token); } catch (_) {}
-          });
-          _srStateSub ??= NotificacionesHub.instance.estadoChanges.listen((e) async {
             try { await rp.loadAccepted(token: token); } catch (_) {}
           });
         } else {
           await _srSub?.cancel();
-          await _srStateSub?.cancel();
           _srSub = null;
-          _srStateSub = null;
         }
       }
     });
