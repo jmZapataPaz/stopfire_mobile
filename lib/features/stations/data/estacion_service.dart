@@ -84,27 +84,27 @@ class EstacionService {
   }
 
   static Future<EstacionDetalle> getDetalle(String token) async {
-    final uri = Uri.parse('$_base/api/Bombero/mi-estacion');
-    final headers = {
-      'Authorization': 'Bearer $token', 
+    final base = AppConfig.baseUrl.replaceAll(RegExp(r'\/$'), '');
+    final uri = Uri.parse('$base/api/Bombero/mi-estacion');
+    final headers = <String, String>{
+      'Authorization': 'Bearer $token',
       'Accept': 'application/json',
     };
-    final logHeaders = Map<String, String>.from(headers)
-      ..update('Authorization', (_) => 'Bearer ${_maskToken(token)}', ifAbsent: () => 'Bearer ${_maskToken(token)}');
+    final masked = (token.isNotEmpty && token.length > 16)
+        ? '${token.substring(0, 8)}...${token.substring(token.length - 8)}'
+        : token;
+    debugPrint('[HTTP][GET] $uri');
+    debugPrint('[HTTP][Headers] ${jsonEncode({...headers, 'Authorization': 'Bearer $masked'})}');
 
-    final t0 = DateTime.now();
-    _logReq(method: 'GET', uri: uri, headers: logHeaders);
     final res = await http.get(uri, headers: headers);
-    final dt = DateTime.now().difference(t0);
-    _logRes(uri, res, dt);
-
+    debugPrint('[HTTP][<-] ${res.statusCode} $uri');
     if (res.statusCode >= 400) {
-      throw Exception(_formatErr(uri.toString(), res));
+      debugPrint('[HTTP][Resp headers] ${jsonEncode(res.headers)}');
+      debugPrint('[HTTP][Resp body] ${res.body}');
+      throw Exception('HTTP ${res.statusCode} $uri -> ${res.body}');
     }
     final j = jsonDecode(res.body) as Map<String, dynamic>;
-    final det = EstacionDetalle.fromJson(j);
-    debugPrint('[ESTACION][DETALLE] ${det.toString()}');
-    return det;
+    return EstacionDetalle.fromJson(j);
   }
 
   static Future<EstacionDetalle> actualizar(String token, int estacionId, Map<String, dynamic> cambios) async {

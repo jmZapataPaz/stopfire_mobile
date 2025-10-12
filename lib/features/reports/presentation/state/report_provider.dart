@@ -23,12 +23,9 @@ class ReportProvider extends ChangeNotifier {
   String _descripcion = '';
   bool _sending = false;
   String? _error;
-
-  // aceptados
   List<Report> _accepted = [];
   bool _loadingAccepted = false;
   Timer? _acceptedTimer;
-
   File? get photo => _photo;
   List<Report> get accepted => _accepted;
   bool get loadingAccepted => _loadingAccepted;

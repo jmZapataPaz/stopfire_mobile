@@ -4,6 +4,7 @@ import 'package:stopfire_mobile/features/account/presentation/state/account_prov
 import 'package:stopfire_mobile/features/auth/presentation/pages/login_page.dart';
 import 'package:stopfire_mobile/features/auth/presentation/state/auth_provider.dart';
 import 'package:stopfire_mobile/features/stations/presentation/pages/stations_map_page.dart';
+import 'package:stopfire_mobile/features/shared/widgets/app_bottom_nav_bar.dart';
 
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
@@ -92,14 +93,7 @@ class _AccountPageState extends State<AccountPage> {
                         ),
                       ],
                     ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 1,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map), label: 'Mapa'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Cuenta'),
-        ],
-        onDestinationSelected: _onNavTap,
-      ),
+      bottomNavigationBar: const AppBottomNavBar(selectedIndex: 2),
     );
   }
 }

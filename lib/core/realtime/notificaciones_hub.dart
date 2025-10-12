@@ -57,12 +57,9 @@ class NotificacionesHub {
         try { await _reloadAccepted!(); } catch (_) {}
       }
     }
-
     _conn!.on('AsignacionCreada', (args) => onAnyAsignacion(args, 'AsignacionCreada'));
     _conn!.on('AsignacionActualizada', (args) => onAnyAsignacion(args, 'AsignacionActualizada'));
     _conn!.on('AsignacionEliminada', (args) => onAnyAsignacion(args, 'AsignacionEliminada'));
-
-    // NUEVO: eventos de reporte
     _conn!.on('ReporteMitigado', (args) async {
       final id = _extractId(args);
       if (id != null && _onReporteMitigado != null) {

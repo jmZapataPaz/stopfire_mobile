@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:stopfire_mobile/features/auth/presentation/state/auth_provider.dart';
 import 'package:stopfire_mobile/features/stations/presentation/state/bombero_estacion_provider.dart';
 import 'package:stopfire_mobile/features/shared/widgets/app_bottom_nav_bar.dart';
-import 'package:stopfire_mobile/index.dart'; // para LoginPage
+import 'package:stopfire_mobile/index.dart'; 
 
 class BomberoEstacionPage extends StatelessWidget {
   const BomberoEstacionPage({super.key});
@@ -178,21 +177,4 @@ class _Body extends StatelessWidget {
     );
   }
 
-  Widget _miniStat(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.black54)),
-          const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontSize: 14)),
-        ],
-      ),
-    );
-  }
 }

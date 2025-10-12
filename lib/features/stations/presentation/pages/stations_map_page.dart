@@ -14,9 +14,19 @@ import 'package:stopfire_mobile/core/config/app_config.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:stopfire_mobile/core/signalr/notificaciones_hub.dart';
+import 'package:http/http.dart' as http;
 
 class StationsMapPage extends StatefulWidget {
-  const StationsMapPage({super.key});
+  const StationsMapPage({
+    super.key,
+    this.focusLat,
+    this.focusLng,
+    this.focusZoom,
+  });
+
+  final double? focusLat;
+  final double? focusLng;
+  final double? focusZoom;
 
   @override
   State<StationsMapPage> createState() => _StationsMapPageState();
@@ -53,8 +63,19 @@ class _StationsMapPageState extends State<StationsMapPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final hasFocus = widget.focusLat != null && widget.focusLng != null;
+      if (hasFocus) {
+        try {
+          _mapController.move(
+            LatLng(widget.focusLat!, widget.focusLng!),
+            widget.focusZoom ?? 15.5,
+          );
+        } catch (_) {}
+      } else {
+        _centerToUserLocationOnce();
+      }
+
       context.read<StationProvider>().loadStations();
-      _centerToUserLocationOnce();
 
       final auth = context.read<AuthProvider>();
       auth.ensureRoleParsed();
@@ -161,6 +182,147 @@ class _StationsMapPageState extends State<StationsMapPage> {
     }
   }
 
+  String? _resolvePhotoUrl(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final base = Uri.parse(AppConfig.baseUrl); 
+      Uri u = Uri.parse(raw);
+      if (!u.hasScheme) {
+        final resolved = base.resolveUri(u);
+        debugPrint('[IMG] resolved relative -> $resolved');
+        return resolved.toString();
+      }
+      if (u.host == 'localhost' || u.host == '127.0.0.1') {
+        final mapped = u.replace(
+          scheme: base.scheme,
+          host: base.host,
+          port: base.hasPort ? base.port : u.port,
+        );
+        debugPrint('[IMG] mapped localhost -> $mapped');
+        return mapped.toString();
+      }
+      debugPrint('[IMG] raw url (absolute): $u');
+      return u.toString();
+    } catch (e) {
+      debugPrint('[IMG] resolve error: $e');
+      final base = AppConfig.baseUrl.replaceAll(RegExp(r'\/$'), '');
+      final path = raw.startsWith('/') ? raw : '/$raw';
+      return '$base$path';
+    }
+  }
+
+
+  int? _getReportId(dynamic r) {
+    try {
+      return r.id ?? r.reporteId ?? r['id'] ?? r['reporteId'];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _mitigarReporte(int id) async {
+    final token = context.read<AuthProvider>().token;
+    if (token == null || token.isEmpty) return;
+    final base = AppConfig.baseUrl.replaceAll(RegExp(r'\/$'), '');
+    final uri = Uri.parse('$base/api/Bombero/reportes/$id/mitigar');
+    debugPrint('[MITIGAR][POST] $uri');
+    final res = await http.post(uri, headers: {
+      'Authorization': 'Bearer $token',
+      'Accept': 'application/json',
+    });
+    debugPrint('[MITIGAR][RES] ${res.statusCode} ${res.reasonPhrase}');
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      try { await context.read<ReportProvider>().loadAccepted(token: token); } catch (_) {}
+      return;
+    }
+    throw Exception('HTTP ${res.statusCode} $uri -> ${res.body}');
+  }
+  void _showAcceptedReportInfo(dynamic r) {
+    final String? rawUrl = (r.fotoUrl ?? r.foto ?? r.imageUrl)?.toString();
+    final String? url = _resolvePhotoUrl(rawUrl);
+    final String descripcion = (r.descripcion ?? r.description ?? '').toString();
+
+    final token = context.read<AuthProvider>().token;
+    final bool isBombero = _isBomberoToken(token);
+    final int? reportId = _getReportId(r);
+
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: StatefulBuilder(
+          builder: (context, setLocal) {
+            bool loading = false;
+
+            Future<void> onMitigar(dynamic outerCtx) async {
+              if (reportId == null) return;
+              setLocal(() => loading = true);
+              try {
+                await _mitigarReporte(reportId);
+                if (mounted) Navigator.of(context).pop();
+                if (outerCtx.mounted) {
+                  ScaffoldMessenger.of(outerCtx).showSnackBar(
+                    const SnackBar(content: Text('Reporte mitigado')),
+                  );
+                }
+              } catch (e) {
+                debugPrint('[MITIGAR][ERR] $e');
+                if (outerCtx.mounted) {
+                  ScaffoldMessenger.of(outerCtx).showSnackBar(
+                    SnackBar(content: Text('Error al mitigar: $e')),
+                  );
+                }
+              } finally {
+                setLocal(() => loading = false);
+              }
+            }
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Reporte', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                if (url != null && url.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      url,
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, err, __) {
+                        debugPrint('[IMG][NET_ERR] $err');
+                        return Container(
+                          height: 200,
+                          color: Colors.black12,
+                          alignment: Alignment.center,
+                          child: const Text('No se pudo cargar la imagen'),
+                        );
+                      },
+                    ),
+                  ),
+                if ((url ?? '').isNotEmpty) const SizedBox(height: 8),
+                Text(descripcion.isEmpty ? 'Sin descripción' : descripcion, style: const TextStyle(fontSize: 15)),
+                const SizedBox(height: 12),
+                if (isBombero && reportId != null)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: loading ? const Text('Mitigando...') : const Text('Mitigado'),
+                      onPressed: loading ? null : () => onMitigar(context),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _srSub?.cancel();
@@ -217,9 +379,12 @@ class _StationsMapPageState extends State<StationsMapPage> {
                 point: LatLng(r.lat!, r.lon!),
                 width: 44,
                 height: 44,
-                child: const Tooltip(
-                  message: 'Incidente aceptado',
-                  child: Icon(Icons.warning_amber_rounded, color: Colors.red, size: 36),
+                child: GestureDetector(
+                  onTap: () => _showAcceptedReportInfo(r),
+                  child: const Tooltip(
+                    message: 'Incidente aceptado',
+                    child: Icon(Icons.warning_amber_rounded, color: Colors.red, size: 36),
+                  ),
                 ),
               ),
             )

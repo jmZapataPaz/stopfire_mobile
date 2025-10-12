@@ -59,7 +59,6 @@ class CreateReportSheet extends StatelessWidget {
                           await provider.submit(token: auth.token!);
                           if (context.mounted) Navigator.of(context).pop(true);
                         } catch (_) {
-                          // error ya se mostró en provider
                         }
                       },
                 icon: provider.sending

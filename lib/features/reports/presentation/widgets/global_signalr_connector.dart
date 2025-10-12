@@ -71,7 +71,6 @@ class _GlobalSignalRConnectorState extends State<GlobalSignalRConnector> with Wi
     await NotificacionesHub.instance.ensureConnected(baseUrl: apiBase, token: token!);
 
     _sub ??= NotificacionesHub.instance.incomingReports.listen((r) async {
-      // dedupe por id
       if (_shownIds.contains(r.id)) return;
       _shownIds.add(r.id);
 
@@ -80,10 +79,7 @@ class _GlobalSignalRConnectorState extends State<GlobalSignalRConnector> with Wi
         apiBase: apiBase,
         tokenProvider: () async => context.read<AuthProvider>().token,
       );
-
-      final result = await handler.showIncoming(r); // 'accepted' | 'rejected' | null
-
-      // tras cerrar, refresca lista de aceptados
+      final result = await handler.showIncoming(r); 
       try {
         await context.read<ReportProvider>().loadAccepted(token: auth.token!);
       } catch (_) {}

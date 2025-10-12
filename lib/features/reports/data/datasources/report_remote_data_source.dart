@@ -21,8 +21,6 @@ class ReportRemoteDataSource {
     req.fields['Descripcion'] = descripcion;
     req.fields['Latitud'] = lat;
     req.fields['Longitud'] = lng;
-
-    // Forzar content-type y extensión compatibles
     File upload = photo;
     final ext = p.extension(upload.path).toLowerCase();
     MediaType ct;
@@ -31,7 +29,6 @@ class ReportRemoteDataSource {
     } else if (ext == '.jpg' || ext == '.jpeg') {
       ct = MediaType('image', 'jpeg');
     } else {
-      // Desconocido: forzar JPEG y extensión .jpg para pasar validación del backend
       ct = MediaType('image', 'jpeg');
       final newPath = upload.path.replaceAll(RegExp(r'\.[^\.]+$'), '.jpg');
       if (newPath != upload.path) {
@@ -45,19 +42,14 @@ class ReportRemoteDataSource {
       contentType: ct,
       filename: p.basename(upload.path),
     ));
-
-    // LOG request
     final masked = _maskToken(token);
     final sizeBytes = await upload.length();
     print('[REPORT][REQ] POST $uri');
     print('[REPORT][REQ] Headers: { Authorization: Bearer $masked }');
     print('[REPORT][REQ] Fields: ${req.fields}');
     print('[REPORT][REQ] File: Foto=@${upload.path} (${(sizeBytes/1024).toStringAsFixed(1)} KB) ct=$ct');
-
     final streamed = await req.send();
     final res = await http.Response.fromStream(streamed);
-
-    // LOG response
     print('[REPORT][RES] Status: ${res.statusCode}');
     print('[REPORT][RES] Headers: ${res.headers}');
     final body = res.body;

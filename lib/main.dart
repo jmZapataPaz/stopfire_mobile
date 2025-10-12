@@ -4,15 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stopfire_mobile/index.dart';
 import 'package:stopfire_mobile/core/navigation/app_navigator.dart';
-import 'package:stopfire_mobile/core/signalr/notificaciones_hub.dart';
 import 'package:stopfire_mobile/features/reports/data/datasources/report_remote_data_source.dart';
 import 'package:stopfire_mobile/features/reports/data/repositories/report_repository_impl.dart';
 import 'package:stopfire_mobile/features/reports/domain/usecases/create_report_usecase.dart';
 import 'package:stopfire_mobile/features/reports/domain/usecases/get_accepted_reports_usecase.dart';
-import 'package:stopfire_mobile/features/reports/presentation/services/incoming_report_handler.dart';
 import 'package:stopfire_mobile/features/reports/presentation/state/report_provider.dart';
 import 'package:stopfire_mobile/features/reports/presentation/widgets/global_signalr_connector.dart';
-import 'package:stopfire_mobile/core/config/app_config.dart'; // NUEVO
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

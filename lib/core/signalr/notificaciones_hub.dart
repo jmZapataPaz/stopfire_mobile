@@ -60,7 +60,6 @@ class NotificacionesHub {
       if (p is! Map) return;
       final id = _pickInt(p, ['id', 'Id', 'reporteId', 'ReporteId']);
       final estado = _pickStr(p, ['estado', 'Estado'])?.toUpperCase();
-      // No abrir modal por “ACEPTADO”
       if (estado == 'ACEPTADO') { _emitEstado(p); return; }
       final lat = _pickNum(p, ['latitud', 'Latitud']);
       final lon = _pickNum(p, ['longitud', 'Longitud']);
@@ -82,12 +81,9 @@ class NotificacionesHub {
       final p = (args is List && args.isNotEmpty) ? args.first : args;
       _emitEstado(p);
     }
-
     conn.on('ReporteCreado', handleNuevo);
     conn.on('ReporteAsignado', handleNuevo);
     conn.on('AsignacionCreada', handleNuevo);
-
-    // Importante: mismos eventos que usa web para MITIGADO/cambios
     conn.on('ReporteEstado', handleEstado);
     conn.on('AsignacionEstado', handleEstado);
     conn.on('ReporteMitigado', handleEstado);
