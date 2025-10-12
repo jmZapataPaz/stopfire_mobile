@@ -4,6 +4,7 @@ import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:stopfire_mobile/core/realtime/notificaciones_hub.dart';
 import 'package:stopfire_mobile/features/stations/presentation/state/station_provider.dart';
 import 'package:stopfire_mobile/features/stations/domain/entities/station.dart';
 import 'package:stopfire_mobile/features/reports/presentation/pages/create_report_sheet.dart';
@@ -13,7 +14,6 @@ import 'package:stopfire_mobile/features/shared/widgets/app_bottom_nav_bar.dart'
 import 'package:stopfire_mobile/core/config/app_config.dart';
 import 'dart:convert';
 import 'dart:async';
-import 'package:stopfire_mobile/core/signalr/notificaciones_hub.dart';
 import 'package:http/http.dart' as http;
 
 class StationsMapPage extends StatefulWidget {
@@ -93,13 +93,13 @@ class _StationsMapPageState extends State<StationsMapPage> {
             token: token,
           );
         } catch (_) {}
-        _srStateSub ??= NotificacionesHub.instance.estadoChanges.listen((e) async {
-          try { await rp.loadAccepted(token: token); } catch (_) {}
+        NotificacionesHub.instance.setReloadAccepted(() async {
+          await rp.loadAccepted(token: token);
         });
         if (isBombero) {
-          _srSub ??= NotificacionesHub.instance.incomingReports.listen((_) async {
-            try { await rp.loadAccepted(token: token); } catch (_) {}
-          });
+          NotificacionesHub.instance.setReloadAccepted(() async {
+          await rp.loadAccepted(token: token);
+        });
         } else {
           await _srSub?.cancel();
           _srSub = null;
