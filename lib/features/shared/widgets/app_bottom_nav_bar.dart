@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:stopfire_mobile/core/utils/jwt_decoder.dart';
 import 'package:stopfire_mobile/features/auth/presentation/state/auth_provider.dart';
 import 'package:stopfire_mobile/features/account/presentation/pages/account_page.dart';
+import 'package:stopfire_mobile/features/stations/presentation/pages/report_history_page.dart';
 import 'package:stopfire_mobile/features/stations/presentation/pages/stations_map_page.dart';
 import 'package:stopfire_mobile/features/stations/presentation/pages/citizen_stations_page.dart';
 import 'package:stopfire_mobile/features/stations/presentation/pages/bombero_estacion_page.dart';
+import 'dart:developer' as _dart;
 
 class AppBottomNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -28,12 +31,13 @@ class AppBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final token = context.select<AuthProvider, String?>((p) => p.token);
+    final token = context.read<AuthProvider>().token ?? '';
+    final idEstacion = JwtDecoder.getEstacionId(token);
     final roleId = _roleIdFromToken(token);
     final isBombero = roleId == 2;
 
     if (isBombero) {
-      final idx = selectedIndex.clamp(0, 1);
+      final idx = selectedIndex.clamp(0, 2);
       return SafeArea(
         top: false,
         child: BottomAppBar(
@@ -56,11 +60,23 @@ class AppBottomNavBar extends StatelessWidget {
                   },
                 ),
                 _SingleNavItem(
-                  icon: Icons.local_fire_department,
-                  label: 'Estación',
+                  icon: Icons.history,
+                  label: 'Historial',
                   selected: idx == 1,
                   onTap: () {
                     if (idx != 1) {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (_) => ReportHistoryPage(idEstacion: idEstacion!)),
+                      );
+                    }
+                  },
+                ),
+                _SingleNavItem(
+                  icon: Icons.local_fire_department,
+                  label: 'Estación',
+                  selected: idx == 2,
+                  onTap: () {
+                    if (idx != 2) {
                       Navigator.of(context).pushReplacement(
                         MaterialPageRoute(builder: (_) => const BomberoEstacionPage()),
                       );

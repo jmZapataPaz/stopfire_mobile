@@ -71,6 +71,8 @@ class AuthProvider extends ChangeNotifier {
   bool get isBombero => _roleId == 2;
   bool get isCiudadano => _roleId == 3;
 
+  get estacionId => null;
+
   void setRoleId(int? v) {
     if (_roleId == v) return;
     _roleId = v;

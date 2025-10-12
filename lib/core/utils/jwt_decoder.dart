@@ -15,6 +15,11 @@ class JwtDecoder {
     return sub == null ? null : int.tryParse(sub);
   }
 
+static int? getEstacionId(String token) {
+    final map = decodePayload(token);
+    final sub = map['estacion_id']?.toString();
+    return sub == null ? null : int.tryParse(sub);
+  }
   static Map<String, dynamic> decode(String token) {
     try {
       final parts = token.split('.');
