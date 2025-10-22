@@ -24,7 +24,7 @@ class CreateReportSheet extends StatelessWidget {
               children: [
                 const Icon(Icons.report, color: Colors.deepOrange),
                 const SizedBox(width: 8),
-                Text('Nuevo reporte', style: Theme.of(context).textTheme.titleMedium),
+                Text('Reportar Incidente', style: Theme.of(context).textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 12),
@@ -52,7 +52,7 @@ class CreateReportSheet extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: provider.sending
+                onPressed: (provider.sending || provider.photo == null)
                     ? null
                     : () async {
                         try {

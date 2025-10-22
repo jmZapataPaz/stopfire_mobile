@@ -96,10 +96,18 @@ class _StationsMapPageState extends State<StationsMapPage> {
         NotificacionesHub.instance.setReloadAccepted(() async {
           await rp.loadAccepted(token: token);
         });
-        if (isBombero) {
-          NotificacionesHub.instance.setReloadAccepted(() async {
+
+        NotificacionesHub.instance.setOnReporteMitigado((_) async {
           await rp.loadAccepted(token: token);
         });
+        NotificacionesHub.instance.setOnReporteEstado((_, __) async {
+          await rp.loadAccepted(token: token);
+        });
+
+        if (isBombero) {
+          NotificacionesHub.instance.setReloadAccepted(() async {
+            await rp.loadAccepted(token: token);
+          });
         } else {
           await _srSub?.cancel();
           _srSub = null;
