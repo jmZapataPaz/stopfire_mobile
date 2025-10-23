@@ -227,6 +227,44 @@ class _StationsMapPageState extends State<StationsMapPage> {
       return null;
     }
   }
+  int? _pickInt(dynamic o, List<String> keys) {
+    try {
+      for (final k in keys) {
+        final v = (o is Map) ? o[k] : (o as dynamic?)?[k];
+        if (v is int) return v;
+        if (v is num) return v.toInt();
+        if (v is String) {
+          final n = int.tryParse(v);
+          if (n != null) return n;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+  String? _pickStr(dynamic o, List<String> keys) {
+    try {
+      for (final k in keys) {
+        final v = (o is Map) ? o[k] : (o as dynamic?)?[k];
+        if (v == null) continue;
+        return v.toString();
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  int? _getAssignedStationId(dynamic r) {
+    return _pickInt(r, ['estacionId','EstacionId','idEstacion','IdEstacion','stationId','StationId']);
+  }
+
+  int? _stationIdFromToken(String? token) {
+    if (token == null || token.isEmpty) return null;
+    final p = _decodeJwt(token);
+    final v = p['estacion_id'] ?? p['estacionId'] ?? p['station_id'] ?? p['stationId'];
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v);
+    return null;
+  }
 
   Future<void> _mitigarReporte(int id) async {
     final token = context.read<AuthProvider>().token;
@@ -245,6 +283,24 @@ class _StationsMapPageState extends State<StationsMapPage> {
     }
     throw Exception('HTTP ${res.statusCode} $uri -> ${res.body}');
   }
+  Future<Map<String, dynamic>?> _fetchReportDetail(int id) async {
+    try {
+      final token = context.read<AuthProvider>().token;
+      if (token == null || token.isEmpty) return null;
+      final base = AppConfig.baseUrl.replaceAll(RegExp(r'\/$'), '');
+      final uri = Uri.parse('$base/api/Usuarios/reportes/$id');
+      final res = await http.get(uri, headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final data = jsonDecode(res.body);
+        return (data is Map<String, dynamic>) ? data : null;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   void _showAcceptedReportInfo(dynamic r) {
     final String? rawUrl = (r.fotoUrl ?? r.foto ?? r.imageUrl)?.toString();
     final String? url = _resolvePhotoUrl(rawUrl);
@@ -254,6 +310,12 @@ class _StationsMapPageState extends State<StationsMapPage> {
     final bool isBombero = _isBomberoToken(token);
     final int? reportId = _getReportId(r);
 
+    int? assignedStationId = _getAssignedStationId(r);
+    String estado = (_pickStr(r, ['estado','Estado']) ?? '').toUpperCase();
+    final int? myStationId = _stationIdFromToken(token);
+
+    bool requestedDetail = false; 
+
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
@@ -262,6 +324,25 @@ class _StationsMapPageState extends State<StationsMapPage> {
         child: StatefulBuilder(
           builder: (context, setLocal) {
             bool loading = false;
+            if (!requestedDetail && reportId != null && (assignedStationId == null || estado.isEmpty)) {
+              requestedDetail = true;
+              () async {
+                final d = await _fetchReportDetail(reportId);
+                if (d != null) {
+                  setLocal(() {
+                    assignedStationId = _pickInt(d, ['estacionId','EstacionId','idEstacion','IdEstacion']);
+                    estado = (_pickStr(d, ['estado','Estado']) ?? '').toUpperCase();
+                  });
+                }
+              }();
+            }
+
+            final bool canMitigar = isBombero &&
+                reportId != null &&
+                myStationId != null &&
+                assignedStationId != null &&
+                estado == 'ACEPTADO' &&
+                assignedStationId == myStationId;
 
             Future<void> onMitigar(dynamic outerCtx) async {
               if (reportId == null) return;
@@ -275,7 +356,6 @@ class _StationsMapPageState extends State<StationsMapPage> {
                   );
                 }
               } catch (e) {
-                debugPrint('[MITIGAR][ERR] $e');
                 if (outerCtx.mounted) {
                   ScaffoldMessenger.of(outerCtx).showSnackBar(
                     SnackBar(content: Text('Error al mitigar: $e')),
@@ -300,21 +380,18 @@ class _StationsMapPageState extends State<StationsMapPage> {
                       height: 200,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, err, __) {
-                        debugPrint('[IMG][NET_ERR] $err');
-                        return Container(
-                          height: 200,
-                          color: Colors.black12,
-                          alignment: Alignment.center,
-                          child: const Text('No se pudo cargar la imagen'),
-                        );
-                      },
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 200,
+                        color: Colors.black12,
+                        alignment: Alignment.center,
+                        child: const Text('No se pudo cargar la imagen'),
+                      ),
                     ),
                   ),
                 if ((url ?? '').isNotEmpty) const SizedBox(height: 8),
                 Text(descripcion.isEmpty ? 'Sin descripción' : descripcion, style: const TextStyle(fontSize: 15)),
                 const SizedBox(height: 12),
-                if (isBombero && reportId != null)
+                if (canMitigar)
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(

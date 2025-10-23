@@ -28,22 +28,34 @@ class IncomingReportHandler {
     _dialogOpen = true;
     _currentDialogReportId = r.id;
 
+    // AGREGADO: cierre seguro (evita doble pop)
+    void _safeClose() {
+      if (!_dialogOpen) return;
+      _dialogOpen = false;
+      if (navigatorKey.currentState?.canPop() ?? false) {
+        navigatorKey.currentState?.pop();
+      }
+    }
+
+    int? _pickReporteId(Object rechazo) {
+      // ...existing code...
+    }
+
     final notificacionesHub = NotificacionesHub.instance;
     final estadoSub = notificacionesHub.reportEstadoStream.listen((estado) {
+      if (!_dialogOpen) return;
       if (_currentDialogReportId == null) return;
       if (estado.id == _currentDialogReportId &&
           (estado.estado == 'ACEPTADO' || estado.estado == 'MITIGADO')) {
-        if (navigatorKey.currentState?.canPop() ?? false) {
-          navigatorKey.currentState?.pop();
-        }
+        _safeClose(); // único cierre cuando viene de web/otro cliente
       }
     });
     final rechazoSub = notificacionesHub.reportRechazadoStream.listen((rechazo) {
+      if (!_dialogOpen) return;
       if (_currentDialogReportId == null) return;
-      if (rechazo.reporteId == _currentDialogReportId) {
-        if (navigatorKey.currentState?.canPop() ?? false) {
-          navigatorKey.currentState?.pop();
-        }
+      final rid = _pickReporteId(rechazo);
+      if (rid == _currentDialogReportId) {
+        _safeClose(); // cierre por rechazo desde web/otro cliente
       }
     });
 
@@ -56,12 +68,14 @@ class IncomingReportHandler {
         child: _Dialog(
           reporte: r,
           onAccept: () async {
+            // Cierra localmente tras confirmar en backend
             try { await acceptReport(r.id); result = 'accepted'; } catch (_) {}
-            if (context.mounted) Navigator.of(context).pop(); 
+            _safeClose();
           },
           onReject: () async {
+            // Cierra localmente tras confirmar en backend
             try { await rejectReport(r.id); result = 'rejected'; } catch (_) {}
-            if (context.mounted) Navigator.of(context).pop();
+            _safeClose();
           },
         ),
       ),

@@ -31,6 +31,8 @@ class NotificacionesHub {
     _baseUrl = baseUrl;
     _token = token;
     await _conn?.stop();
+    _handlersReady = false; // <- AGREGADO: forzar re-registro de handlers al reconectar
+
     _conn = HubConnectionBuilder()
         .withUrl(
           '$baseUrl/hubs/notificaciones',
