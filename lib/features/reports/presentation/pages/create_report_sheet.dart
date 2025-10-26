@@ -64,7 +64,6 @@ class CreateReportSheet extends StatelessWidget {
                         final token = auth.token;
                         if (token == null || token.isEmpty) return;
 
-                        // 1) obtener ubicación actual del ciudadano
                         try {
                           final serviceEnabled = await Geolocator.isLocationServiceEnabled();
                           if (!serviceEnabled) throw Exception('GPS desactivado');
@@ -81,7 +80,6 @@ class CreateReportSheet extends StatelessWidget {
                           final lat = pos.latitude;
                           final lon = pos.longitude;
 
-                          // 2) consultar reportes PENDIENTE cercanos (2 km)
                           final base = AppConfig.baseUrl.replaceAll(RegExp(r'\/$'), '');
                           final uri = Uri.parse('$base/api/Usuarios/reportes').replace(queryParameters: {
                             'estado': 'PENDIENTE',
@@ -115,19 +113,17 @@ class CreateReportSheet extends StatelessWidget {
                               );
 
                               if (ok == true) {
-                                // 3) confirmar en backend
                                 final cUri = Uri.parse('$base/api/Usuarios/reportes/$nearestId/confirm');
                                 final cRes = await http.post(cUri, headers: {
                                   'Authorization': 'Bearer $token',
                                   'Accept': 'application/json',
                                 });
                                 if (cRes.statusCode >= 200 && cRes.statusCode < 300) {
-                                  // Quitar: NO fijar perímetro aquí; esperar a ACEPTADO por SignalR
                                   if (context.mounted) {
-                                    Navigator.of(context).pop(true); // cerrar sheet
+                                    Navigator.of(context).pop(true); 
                                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gracias, confirmaste el incidente.')));
                                   }
-                                  return; // no crear un nuevo reporte
+                                  return; 
                                 } else {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al confirmar: ${cRes.statusCode}')));
@@ -135,21 +131,13 @@ class CreateReportSheet extends StatelessWidget {
                                   return;
                                 }
                               } else {
-                                // canceló, no crea reporte
                                 return;
                               }
                             }
                           } else {
-                            // si falla nearby, sigue flujo normal de creación
                           }
-
-                          // 4) no hay cercanos -> sigue creación normal
-                          // Quitar: NO fijar perímetro aún (no está aceptado)
                         } catch (_) {
-                          // si algo falla, no interrumpe el flujo normal
                         }
-
-                        // 5) CREACIÓN NORMAL (tu flujo actual)
                         try {
                           await provider.submit(token: token);
                           if (context.mounted) Navigator.of(context).pop(true);

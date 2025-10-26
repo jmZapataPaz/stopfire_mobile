@@ -437,8 +437,11 @@ class _StationsMapPageState extends State<StationsMapPage> {
     int? assignedStationId = _getAssignedStationId(r);
     String estado = (_pickStr(r, ['estado','Estado']) ?? '').toUpperCase();
     final int? myStationId = _stationIdFromToken(token);
-
     bool requestedDetail = false; 
+    String? usuarioNombre;
+    String? usuarioCi;
+    String? usuarioCelular;
+    int? riesgoPercent;
 
     showModalBottomSheet(
       context: context,
@@ -448,6 +451,7 @@ class _StationsMapPageState extends State<StationsMapPage> {
         child: StatefulBuilder(
           builder: (context, setLocal) {
             bool loading = false;
+
             if (!requestedDetail && reportId != null && (assignedStationId == null || estado.isEmpty)) {
               requestedDetail = true;
               () async {
@@ -456,6 +460,10 @@ class _StationsMapPageState extends State<StationsMapPage> {
                   setLocal(() {
                     assignedStationId = _pickInt(d, ['estacionId','EstacionId','idEstacion','IdEstacion']);
                     estado = (_pickStr(d, ['estado','Estado']) ?? '').toUpperCase();
+                    usuarioNombre = _pickStr(d, ['usuarioNombre','UsuarioNombre','usuario','reporterNombre','nombreUsuario']);
+                    usuarioCi = _pickStr(d, ['usuarioCi','UsuarioCi','ci','Ci']);
+                    usuarioCelular = _pickStr(d, ['usuarioCelular','UsuarioCelular','celular','telefono','telefonoUsuario']);
+                    riesgoPercent = _pickInt(d, ['riesgoPercent','RiesgoPercent','riesgo','Riesgo']);
                   });
                 }
               }();
@@ -514,7 +522,19 @@ class _StationsMapPageState extends State<StationsMapPage> {
                   ),
                 if ((url ?? '').isNotEmpty) const SizedBox(height: 8),
                 Text(descripcion.isEmpty ? 'Sin descripción' : descripcion, style: const TextStyle(fontSize: 15)),
-                const SizedBox(height: 12),
+
+                if (isBombero && (usuarioNombre != null || usuarioCi != null || usuarioCelular != null || riesgoPercent != null))
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (usuarioNombre != null) Text('Nombre: $usuarioNombre', style: const TextStyle(fontSize: 14)),
+                      if (usuarioCi != null) Text('CI: $usuarioCi', style: const TextStyle(fontSize: 14)),
+                      if (usuarioCelular != null) Text('Celular: $usuarioCelular', style: const TextStyle(fontSize: 14)),
+                      if (riesgoPercent != null) Text('Riesgo: $riesgoPercent%', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+
                 if (canMitigar)
                   SizedBox(
                     width: double.infinity,

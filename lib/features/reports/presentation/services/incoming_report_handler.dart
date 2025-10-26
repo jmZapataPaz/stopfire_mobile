@@ -28,7 +28,6 @@ class IncomingReportHandler {
     _dialogOpen = true;
     _currentDialogReportId = r.id;
 
-    // AGREGADO: cierre seguro (evita doble pop)
     void _safeClose() {
       if (!_dialogOpen) return;
       _dialogOpen = false;
@@ -38,7 +37,6 @@ class IncomingReportHandler {
     }
 
     int? _pickReporteId(Object rechazo) {
-      // ...existing code...
     }
 
     final notificacionesHub = NotificacionesHub.instance;
@@ -47,7 +45,7 @@ class IncomingReportHandler {
       if (_currentDialogReportId == null) return;
       if (estado.id == _currentDialogReportId &&
           (estado.estado == 'ACEPTADO' || estado.estado == 'MITIGADO')) {
-        _safeClose(); // único cierre cuando viene de web/otro cliente
+        _safeClose(); 
       }
     });
     final rechazoSub = notificacionesHub.reportRechazadoStream.listen((rechazo) {
@@ -55,7 +53,7 @@ class IncomingReportHandler {
       if (_currentDialogReportId == null) return;
       final rid = _pickReporteId(rechazo);
       if (rid == _currentDialogReportId) {
-        _safeClose(); // cierre por rechazo desde web/otro cliente
+        _safeClose(); 
       }
     });
 
@@ -68,12 +66,10 @@ class IncomingReportHandler {
         child: _Dialog(
           reporte: r,
           onAccept: () async {
-            // Cierra localmente tras confirmar en backend
             try { await acceptReport(r.id); result = 'accepted'; } catch (_) {}
             _safeClose();
           },
           onReject: () async {
-            // Cierra localmente tras confirmar en backend
             try { await rejectReport(r.id); result = 'rejected'; } catch (_) {}
             _safeClose();
           },
