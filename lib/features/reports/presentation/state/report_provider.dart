@@ -146,4 +146,25 @@ class ReportProvider extends ChangeNotifier {
       print('[REPORT][LIST] removido por mitigación id=$id, quedan=${_accepted.length}');
     }
   }
+
+  // AGREGADO: perímetro de incidente (asociado a un reporte aceptado)
+  double? perimeterLat;
+  double? perimeterLon;
+  int? perimeterReportId; // <- id del reporte aceptado para confirmar
+  int perimeterRadiusMeters = 2000;
+
+  void setPerimeter(double lat, double lon, {int? radiusMeters, int? reportId}) {
+    perimeterLat = lat;
+    perimeterLon = lon;
+    if (radiusMeters != null) perimeterRadiusMeters = radiusMeters;
+    if (reportId != null) perimeterReportId = reportId;
+    notifyListeners();
+  }
+
+  void clearPerimeter() {
+    perimeterLat = null;
+    perimeterLon = null;
+    perimeterReportId = null;
+    notifyListeners();
+  }
 }

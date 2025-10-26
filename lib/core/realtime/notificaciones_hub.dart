@@ -5,6 +5,7 @@ import 'package:signalr_core/signalr_core.dart';
 typedef VoidAsync = Future<void> Function();
 typedef ReporteIdHandler = Future<void> Function(int id);
 typedef ReporteEstadoHandler = Future<void> Function(int id, String estado);
+typedef ReporteConfirmadoHandler = void Function(dynamic payload);
 
 class NotificacionesHub {
   NotificacionesHub._();
@@ -17,6 +18,7 @@ class NotificacionesHub {
   VoidAsync? _reloadAccepted;
   ReporteIdHandler? _onReporteMitigado;
   ReporteEstadoHandler? _onReporteEstado;
+  ReporteConfirmadoHandler? _onReporteConfirmado;
 
   Future<void> ensureConnected({
     required String baseUrl,
@@ -82,6 +84,11 @@ class NotificacionesHub {
     });
 
     _conn!.on('ReporteAsignado', (args) => onAnyAsignacion(args, 'ReporteAsignado'));
+    _conn?.on('ReporteConfirmado', (args) {
+      final payload = (args!.isNotEmpty) ? args[0] : null;
+      log('[SR] ReporteConfirmado $payload');
+      _onReporteConfirmado?.call(payload);
+    });
   }
   void setReloadAccepted(VoidAsync? fn) {
     _reloadAccepted = fn;
@@ -91,6 +98,9 @@ class NotificacionesHub {
   }
   void setOnReporteEstado(ReporteEstadoHandler? fn) {
     _onReporteEstado = fn;
+  }
+  void setOnReporteConfirmado(ReporteConfirmadoHandler? h) {
+    _onReporteConfirmado = h;
   }
 
   int? _extractId(List<Object?>? args) {

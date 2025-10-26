@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:stopfire_mobile/core/realtime/notificaciones_hub.dart';
+import 'package:stopfire_mobile/features/reports/domain/entities/report.dart';
 import 'package:stopfire_mobile/features/stations/presentation/state/station_provider.dart';
 import 'package:stopfire_mobile/features/stations/domain/entities/station.dart';
 import 'package:stopfire_mobile/features/reports/presentation/pages/create_report_sheet.dart';
@@ -99,8 +100,29 @@ class _StationsMapPageState extends State<StationsMapPage> {
 
         NotificacionesHub.instance.setOnReporteMitigado((_) async {
           await rp.loadAccepted(token: token);
+          rp.clearPerimeter();
         });
-        NotificacionesHub.instance.setOnReporteEstado((_, __) async {
+        NotificacionesHub.instance.setOnReporteEstado((rid, est) async {
+          final estadoUp = (est ?? '').toUpperCase();
+          await rp.loadAccepted(token: token);
+
+          if (estadoUp == 'MITIGADO') {
+            rp.clearPerimeter();
+            return;
+          }
+          if (estadoUp == 'ACEPTADO') {
+            try {
+              final r = rp.accepted.firstWhere((e) => e.id == rid);
+              if (r.lat != null && r.lon != null) {
+                rp.setPerimeter(r.lat!, r.lon!, radiusMeters: 2000, reportId: rid);
+                debugPrint('[PERIMETER] set from ACEPTADO id=$rid lat=${r.lat} lon=${r.lon}');
+              }
+            } catch (_) {
+            }
+          }
+        });
+
+        NotificacionesHub.instance.setOnReporteConfirmado((_) async {
           await rp.loadAccepted(token: token);
         });
 
@@ -173,6 +195,9 @@ class _StationsMapPageState extends State<StationsMapPage> {
 
   void _openCreateReport() async {
     try { context.read<ReportProvider>().reset(); } catch (_) {}
+    final handled = await _checkNearbyAndMaybeConfirm();
+    if (handled == true) return;
+
     final ok = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -187,6 +212,105 @@ class _StationsMapPageState extends State<StationsMapPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Reporte enviado')),
       );
+    }
+  }
+  Future<bool> _checkNearbyAndMaybeConfirm() async {
+    try {
+      final auth = context.read<AuthProvider>();
+      final token = auth.token;
+      if (token == null || token.isEmpty) return false;
+
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return false;
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        return false;
+      }
+      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final myLat = pos.latitude;
+      final myLon = pos.longitude;
+      final rp = context.read<ReportProvider>();
+      Future<bool> _confirmById(int reporteId) async {
+        final base = AppConfig.baseUrl.replaceAll(RegExp(r'\/$'), '');
+        final cUri = Uri.parse('$base/api/Usuarios/reportes/$reporteId/confirm');
+        debugPrint('[CONFIRM][POST] $cUri (id=$reporteId)');
+        final cRes = await http.post(cUri, headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        });
+        debugPrint('[CONFIRM][RES] ${cRes.statusCode} body=${cRes.body}');
+        if (cRes.statusCode >= 200 && cRes.statusCode < 300) {
+          try { await context.read<ReportProvider>().loadAccepted(token: token); } catch (_) {}
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Gracias, confirmaste el incidente.')),
+            );
+          }
+          return true;
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error al confirmar: ${cRes.statusCode}')),
+          );
+        }
+        return true;
+      }
+      if (rp.perimeterLat != null && rp.perimeterLon != null && rp.perimeterReportId != null) {
+        final dist = Geolocator.distanceBetween(myLat, myLon, rp.perimeterLat!, rp.perimeterLon!);
+        debugPrint('[PERIMETER] dist=${dist.toStringAsFixed(1)}m id=${rp.perimeterReportId}');
+        if (dist <= rp.perimeterRadiusMeters) {
+          final ok = await showDialog<bool>(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Incidente cercano'),
+              content: const Text('Ya existe un incidente en la zona. ¿Confirmas que sigue ocurriendo?'),
+              actions: [
+                TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+                FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Confirmar')),
+              ],
+            ),
+          );
+          if (ok == true) {
+            return await _confirmById(rp.perimeterReportId!);
+          }
+          return true; 
+        }
+      }
+
+      try { await context.read<ReportProvider>().loadAccepted(token: token); } catch (_) {}
+      final accepted = List<Report>.from(context.read<ReportProvider>().accepted);
+      Report? nearest;
+      double best = double.infinity;
+      for (final r in accepted) {
+        if (r.lat == null || r.lon == null) continue;
+        final d = Geolocator.distanceBetween(myLat, myLon, r.lat!, r.lon!);
+        if (d < best) { best = d; nearest = r; }
+      }
+      if (nearest != null && best <= (rp.perimeterRadiusMeters)) {
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Incidente cercano'),
+            content: const Text('Ya existe un incidente en la zona. ¿Confirmas que sigue ocurriendo?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+              FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Confirmar')),
+            ],
+          ),
+        );
+        if (ok == true) {
+          return await _confirmById(nearest.id); 
+        }
+        return true; 
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[NEARBY][ERR] $e');
+      return false;
     }
   }
 
@@ -424,6 +548,30 @@ class _StationsMapPageState extends State<StationsMapPage> {
         final hasData = sp.stations.isNotEmpty;
         final polygons = <Polygon>[];
         final circleMarkers = <CircleMarker>[];
+        final acceptedCircles = rp.accepted
+            .where((r) => r.lat != null && r.lon != null)
+            .map((r) => CircleMarker(
+                  point: LatLng(r.lat!, r.lon!),
+                  useRadiusInMeter: true,
+                  radius: 500, // 500m por requerimiento
+                  color: Colors.red.withOpacity(0.18),
+                  borderColor: Colors.red,
+                  borderStrokeWidth: 2,
+                ))
+            .toList();
+        circleMarkers.addAll(acceptedCircles);
+        if (circleMarkers.isEmpty && rp.perimeterLat != null && rp.perimeterLon != null) {
+          circleMarkers.add(
+            CircleMarker(
+              point: LatLng(rp.perimeterLat!, rp.perimeterLon!),
+              useRadiusInMeter: true,
+              radius: rp.perimeterRadiusMeters.toDouble(),
+              color: Colors.red.withOpacity(0.18),
+              borderColor: Colors.red,
+              borderStrokeWidth: 2,
+            ),
+          );
+        }
         for (var i = 0; i < sp.stations.length; i++) {
           final s = sp.stations[i];
           if (s.cobertura.isEmpty) continue;

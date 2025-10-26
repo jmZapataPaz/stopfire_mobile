@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
+import 'package:stopfire_mobile/core/config/app_config.dart';
 import 'package:stopfire_mobile/features/auth/presentation/state/auth_provider.dart';
 import 'package:stopfire_mobile/features/reports/presentation/state/report_provider.dart';
 
@@ -55,10 +59,104 @@ class CreateReportSheet extends StatelessWidget {
                 onPressed: (provider.sending || provider.photo == null)
                     ? null
                     : () async {
+                        final auth = context.read<AuthProvider>();
+                        final rp = context.read<ReportProvider>();
+                        final token = auth.token;
+                        if (token == null || token.isEmpty) return;
+
+                        // 1) obtener ubicación actual del ciudadano
                         try {
-                          await provider.submit(token: auth.token!);
-                          if (context.mounted) Navigator.of(context).pop(true);
+                          final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+                          if (!serviceEnabled) throw Exception('GPS desactivado');
+
+                          var permission = await Geolocator.checkPermission();
+                          if (permission == LocationPermission.denied) {
+                            permission = await Geolocator.requestPermission();
+                          }
+                          if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+                            throw Exception('Permiso de ubicación denegado');
+                          }
+
+                          final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+                          final lat = pos.latitude;
+                          final lon = pos.longitude;
+
+                          // 2) consultar reportes PENDIENTE cercanos (2 km)
+                          final base = AppConfig.baseUrl.replaceAll(RegExp(r'\/$'), '');
+                          final uri = Uri.parse('$base/api/Usuarios/reportes').replace(queryParameters: {
+                            'estado': 'PENDIENTE',
+                            'lat': lat.toString(),
+                            'lon': lon.toString(),
+                            'radiusMeters': '2000',
+                          });
+                          final res = await http.get(uri, headers: {
+                            'Authorization': 'Bearer $token',
+                            'Accept': 'application/json',
+                          });
+
+                          if (res.statusCode >= 200 && res.statusCode < 300) {
+                            final body = jsonDecode(res.body);
+                            if (body is List && body.isNotEmpty) {
+                              final nearest = Map<String, dynamic>.from(body.first as Map);
+                              final nearestId = (nearest['id'] ?? nearest['Id']) as int;
+                              final confirmCount = (nearest['confirmaciones'] ?? nearest['Confirmaciones'] ?? 1) as int;
+                              final riesgo = (nearest['riesgoPercent'] ?? nearest['RiesgoPercent'] ?? (confirmCount * 20)) as int;
+
+                              final ok = await showDialog<bool>(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  title: const Text('Incidente cercano'),
+                                  content: Text('Ya existe un incidente cerca (confirmaciones: $confirmCount, riesgo: $riesgo%). ¿Confirmar que sigue ocurriendo?'),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+                                    FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Confirmar')),
+                                  ],
+                                ),
+                              );
+
+                              if (ok == true) {
+                                // 3) confirmar en backend
+                                final cUri = Uri.parse('$base/api/Usuarios/reportes/$nearestId/confirm');
+                                final cRes = await http.post(cUri, headers: {
+                                  'Authorization': 'Bearer $token',
+                                  'Accept': 'application/json',
+                                });
+                                if (cRes.statusCode >= 200 && cRes.statusCode < 300) {
+                                  // Quitar: NO fijar perímetro aquí; esperar a ACEPTADO por SignalR
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop(true); // cerrar sheet
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gracias, confirmaste el incidente.')));
+                                  }
+                                  return; // no crear un nuevo reporte
+                                } else {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al confirmar: ${cRes.statusCode}')));
+                                  }
+                                  return;
+                                }
+                              } else {
+                                // canceló, no crea reporte
+                                return;
+                              }
+                            }
+                          } else {
+                            // si falla nearby, sigue flujo normal de creación
+                          }
+
+                          // 4) no hay cercanos -> sigue creación normal
+                          // Quitar: NO fijar perímetro aún (no está aceptado)
                         } catch (_) {
+                          // si algo falla, no interrumpe el flujo normal
+                        }
+
+                        // 5) CREACIÓN NORMAL (tu flujo actual)
+                        try {
+                          await provider.submit(token: token);
+                          if (context.mounted) Navigator.of(context).pop(true);
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          }
                         }
                       },
                 icon: provider.sending
