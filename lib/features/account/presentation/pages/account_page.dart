@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:stopfire_mobile/core/config/app_config.dart';
 import 'package:stopfire_mobile/features/account/presentation/state/account_provider.dart';
 import 'package:stopfire_mobile/features/auth/presentation/pages/login_page.dart';
 import 'package:stopfire_mobile/features/auth/presentation/state/auth_provider.dart';
@@ -31,6 +32,124 @@ class _AccountPageState extends State<AccountPage> {
         MaterialPageRoute(builder: (_) => const StationsMapPage()),
       );
     }
+  }
+
+  // Bottom sheet para actualizar nombre, apellido y correo (con logs y AppConfig)
+  Future<void> _openUpdateSheet() async {
+    final ap = context.read<AccountProvider>();
+    final auth = context.read<AuthProvider>();
+    if (ap.account == null || auth.token == null) return;
+
+    final nombreCtrl = TextEditingController(text: ap.account!.nombre ?? '');
+    final apellidoCtrl = TextEditingController(text: ap.account!.apellido ?? '');
+    final correoCtrl = TextEditingController(text: ap.account!.email ?? '');
+    final formKey = GlobalKey<FormState>();
+    bool saving = false;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) {
+        final insets = MediaQuery.of(ctx).viewInsets;
+        return Padding(
+          padding: EdgeInsets.only(bottom: insets.bottom),
+          child: StatefulBuilder(
+            builder: (ctx, setState) {
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text('Actualizar información', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: nombreCtrl,
+                        decoration: const InputDecoration(labelText: 'Nombre'),
+                        textInputAction: TextInputAction.next,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: apellidoCtrl,
+                        decoration: const InputDecoration(labelText: 'Apellido'),
+                        textInputAction: TextInputAction.next,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: correoCtrl,
+                        decoration: const InputDecoration(labelText: 'Correo'),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (v) {
+                          final s = v?.trim() ?? '';
+                          if (s.isEmpty) return 'Requerido';
+                          final ok = RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(s);
+                          return ok ? null : 'Correo inválido';
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: saving ? null : () => Navigator.pop(ctx, false),
+                              child: const Text('Cancelar'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: saving
+                                  ? null
+                                  : () async {
+                                      if (!formKey.currentState!.validate()) return;
+
+                                      setState(() => saving = true);
+                                      final err = await context.read<AccountProvider>().updateAccount(
+                                        token: auth.token!,
+                                        id: ap.account!.id!,
+                                        nombre: nombreCtrl.text,
+                                        apellido: apellidoCtrl.text,
+                                        correo: correoCtrl.text,
+                                      );
+                                      setState(() => saving = false);
+
+                                      if (!mounted) return;
+                                      if (err == null) {
+                                        Navigator.pop(ctx, true);
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text(err), backgroundColor: Colors.red),
+                                        );
+                                      }
+                                    },
+                              child: saving
+                                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                  : const Text('Guardar'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    ).then((ok) {
+      if (ok == true && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Información actualizada')),
+        );
+      }
+    });
   }
 
   @override
@@ -73,6 +192,13 @@ class _AccountPageState extends State<AccountPage> {
                           leading: const Icon(Icons.phone),
                           title: const Text('Celular'),
                           subtitle: Text(ap.account!.celular ?? '-'),
+                        ),
+                        const SizedBox(height: 12),
+                        // ÚNICO botón para actualizar (abre bottom sheet con logs y AppConfig)
+                        ElevatedButton.icon(
+                          onPressed: _openUpdateSheet,
+                          icon: const Icon(Icons.edit),
+                          label: const Text('Actualizar información'),
                         ),
                         const SizedBox(height: 24),
                         ElevatedButton.icon(
