@@ -1,5 +1,5 @@
 class AppConfig {
-  static const String baseUrl = 'http://192.168.1.7:5190';
+  static const String baseUrl = 'http://172.16.10.174:5190';
   static const String loginEndpoint = '/api/Usuarios/login';
   static const String stationsEndpoint = '/api/Usuarios/estaciones';
   static const String registerInitEndpoint = '/api/Usuarios/registrar/iniciar';

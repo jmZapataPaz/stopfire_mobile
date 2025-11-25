@@ -40,6 +40,35 @@ class _StationsMapPageState extends State<StationsMapPage> {
   StreamSubscription? _srSub;
   StreamSubscription? _srStateSub; 
 
+  // --- Hidrantes ---
+  List<Map<String, dynamic>> _hydrants = [];
+
+  Future<void> _loadHydrants({required String token}) async {
+    try {
+      final base = AppConfig.baseUrl.replaceAll(RegExp(r'\/$'), '');
+      final uri = Uri.parse('$base/api/Bombero/hidrantes');
+      debugPrint('[HIDRANTES][GET] $uri');
+      final res = await http.get(uri, headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+      debugPrint('[HIDRANTES][RES] ${res.statusCode}');
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final data = jsonDecode(res.body);
+        if (data is List) {
+          setState(() {
+            _hydrants = data
+                .whereType<Map<String, dynamic>>()
+                .where((h) => h['latitud'] != null && h['longitud'] != null)
+                .toList();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('[HIDRANTES][ERR] $e');
+    }
+  }
+
   Map<String, dynamic> _decodeJwt(String token) {
     try {
       final parts = token.split('.');
@@ -87,6 +116,11 @@ class _StationsMapPageState extends State<StationsMapPage> {
         if (mounted) setState(() { _canCreateReportFab = !isBombero; });
         final rp = context.read<ReportProvider>();
         await rp.loadAccepted(token: token);
+
+        // --- cargar hidrantes solo para bomberos ---
+        if (isBombero) {
+          await _loadHydrants(token: token);
+        }
 
         try {
           await NotificacionesHub.instance.ensureConnected(
@@ -643,6 +677,29 @@ class _StationsMapPageState extends State<StationsMapPage> {
             )
             .toList();
 
+        // --- Hidrantes: solo se llenan si el bombero ya los cargó ---
+        final hydrantMarkers = _hydrants
+            .map((h) {
+              final lat = (h['latitud'] as num?)?.toDouble();
+              final lon = (h['longitud'] as num?)?.toDouble();
+              if (lat == null || lon == null) return null;
+              return Marker(
+                point: LatLng(lat, lon),
+                width: 44,
+                height: 44,
+                child: const Tooltip(
+                  message: 'Hidrante',
+                  child: Icon(
+                    Icons.fire_hydrant_alt_sharp,
+                    color: Colors.blueAccent,
+                    size: 32,
+                  ),
+                ),
+              );
+            })
+            .whereType<Marker>()
+            .toList();
+
         final center = hasData ? LatLng(sp.stations.first.lat, sp.stations.first.lon) : _defaultCenter();
 
         return Scaffold(
@@ -678,6 +735,7 @@ class _StationsMapPageState extends State<StationsMapPage> {
                   if (circleMarkers.isNotEmpty) CircleLayer(circles: circleMarkers),
                   if (markers.isNotEmpty) MarkerLayer(markers: markers),
                   if (incidentMarkers.isNotEmpty) MarkerLayer(markers: incidentMarkers),
+                  if (hydrantMarkers.isNotEmpty) MarkerLayer(markers: hydrantMarkers),
                   if (sp.loading)
                     const Align(
                       alignment: Alignment.topCenter,
