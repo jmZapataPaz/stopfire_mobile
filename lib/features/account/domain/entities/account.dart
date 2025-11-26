@@ -5,6 +5,7 @@ class Account {
   final String? email;
   final String? celular;
   final int? rolId;
+  final DateTime? ultimoIngreso;
 
   const Account({
     required this.id,
@@ -13,5 +14,6 @@ class Account {
     this.email,
     this.celular,
     this.rolId,
+    this.ultimoIngreso,
   });
 }

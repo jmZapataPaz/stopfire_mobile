@@ -6,6 +6,7 @@ class AccountModel {
   final String? apellido; 
   final String? email;
   final String? celular;
+  final DateTime? UltimoIngreso;
 
   AccountModel({
     required this.id,
@@ -13,6 +14,7 @@ class AccountModel {
     this.apellido, 
     this.email,
     this.celular,
+    this.UltimoIngreso,
   });
 
   factory AccountModel.fromJson(Map<String, dynamic> json) {
@@ -27,6 +29,9 @@ class AccountModel {
       apellido: (json['apellido'] ?? json['lastName'])?.toString(),
       email: (json['email'] ?? json['correo'])?.toString(),
       celular: (json['celular'] ?? json['telefono'])?.toString(),
+      UltimoIngreso: json['ultimoIngreso'] != null
+          ? DateTime.tryParse(json['ultimoIngreso'].toString())
+          : null,
     );
   }
 
@@ -36,5 +41,6 @@ class AccountModel {
         apellido: apellido, 
         email: email,
         celular: celular,
+        ultimoIngreso: UltimoIngreso,
       );
 }

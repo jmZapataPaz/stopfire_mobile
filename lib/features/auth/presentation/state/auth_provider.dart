@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'package:stopfire_mobile/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:stopfire_mobile/features/auth/domain/repositories/auth_repository.dart';
 import 'package:stopfire_mobile/features/auth/domain/usecases/login_usecase.dart';
 import 'package:stopfire_mobile/core/network/http_client.dart';
 import 'package:stopfire_mobile/core/utils/jwt_decoder.dart';
+import 'package:stopfire_mobile/core/auth/last_login_recorder.dart'; // NUEVO
 
 class AuthProvider extends ChangeNotifier {
   final LoginUseCase loginUseCase;
@@ -20,6 +22,16 @@ class AuthProvider extends ChangeNotifier {
   Future<void> loadInitialSession() async {
     token = await repository.getSavedToken();
     debugPrint('AuthProvider.loadInitialSession -> token? ${token != null}');
+    // NUEVO: si hay token y se salta login, registrar ultimo ingreso localmente y en backend
+    if (token != null && token!.isNotEmpty) {
+      await LastLoginRecorder.recordNow();
+      // llamar backend para actualizar UltimoIngreso
+      try {
+        // accesamos el remote a través del repository impl
+        final impl = repository as AuthRepositoryImpl;
+        await impl.remote.pingUltimoIngreso(token!);
+      } catch (_) {}
+    }
   }
 
   Future<bool> login(String correo, String contrasena) async {

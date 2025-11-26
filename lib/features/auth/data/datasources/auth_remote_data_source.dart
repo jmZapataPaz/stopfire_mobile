@@ -2,6 +2,7 @@ import 'package:stopfire_mobile/core/config/app_config.dart';
 import 'package:stopfire_mobile/core/network/http_client.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:math';
+import 'package:stopfire_mobile/core/auth/last_login_recorder.dart'; // NUEVO
 
 class AuthRemoteDataSource {
   final AppHttpClient client;
@@ -21,6 +22,11 @@ class AuthRemoteDataSource {
 
     try {
       final data = await client.postJson(url, body);
+
+      // NUEVO: guardar UltimoIngreso desde la respuesta del login (no altera el flujo)
+      if (data is Map<String, dynamic>) {
+        await LastLoginRecorder.recordFromLoginResponse(data);
+      }
 
       if (AppConfig.httpVerboseLogging) {
         debugPrint('AuthRemoteDataSource.login <- parsed: $data');
@@ -48,6 +54,20 @@ class AuthRemoteDataSource {
         throw HttpFailure('Correo o contraseña incorrectos');
       }
       rethrow;
+    }
+  }
+
+  // NUEVO: ping para registrar último ingreso con token existente
+  Future<void> pingUltimoIngreso(String token) async {
+    final url = '${AppConfig.baseUrl}/api/Usuarios/ultimo-ingreso';
+    try {
+      await client.postJson(
+        url,
+        {}, // cuerpo vacío
+        headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+      );
+    } catch (_) {
+      // no romper flujo si falla
     }
   }
 }

@@ -6,6 +6,41 @@ import 'dart:convert';
 import 'package:stopfire_mobile/core/config/app_config.dart';
 import 'package:stopfire_mobile/features/reports/data/models/report_model.dart';
 
+// NUEVO: helper simple para geocodificación inversa (no interfiere con lo existente)
+Future<String?> _reverseGeocode(String latStr, String lngStr) async {
+  try {
+    final lat = double.tryParse(latStr);
+    final lon = double.tryParse(lngStr);
+    if (lat == null || lon == null) return null;
+    final url = Uri.parse(
+      'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$lat&lon=$lon&zoom=18&addressdetails=1&accept-language=es',
+    );
+    // AGREGADO: User-Agent recomendado por Nominatim + email opcional
+    final res = await http.get(
+      url,
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'stopfire-mobile/1.0 (+https://tu-dominio.example)',
+      },
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      print('[GEOCODE] status=${res.statusCode} body=${res.body}');
+      return null;
+    }
+    final j = json.decode(res.body) as Map<String, dynamic>;
+    final a = (j['address'] ?? {}) as Map<String, dynamic>;
+    final via = a['road'] ?? a['pedestrian'] ?? a['cycleway'] ?? a['footway'] ?? a['path'] ?? a['neighbourhood'];
+    final localidad = a['suburb'] ?? a['village'] ?? a['town'] ?? a['city'];
+    final texto = [via, localidad].where((e) => e != null && e.toString().isNotEmpty).join(', ');
+    final out = (texto.isNotEmpty ? texto : (j['display_name'] as String?));
+    print('[GEOCODE] lat=$lat lon=$lon -> "$out"');
+    return out;
+  } catch (e) {
+    print('[GEOCODE] error: $e');
+    return null;
+  }
+}
+
 class ReportRemoteDataSource {
   Future<void> createReport({
     required String token,
@@ -21,6 +56,14 @@ class ReportRemoteDataSource {
     req.fields['Descripcion'] = descripcion;
     req.fields['Latitud'] = lat;
     req.fields['Longitud'] = lng;
+
+    final direccion = await _reverseGeocode(lat, lng);
+    if (direccion != null && direccion.trim().isNotEmpty) {
+      req.fields['Direccion'] = direccion.trim();
+    } else {
+      print('[REPORT] Sin direccion obtenida (se enviará vacío)');
+    }
+
     File upload = photo;
     final ext = p.extension(upload.path).toLowerCase();
     MediaType ct;
