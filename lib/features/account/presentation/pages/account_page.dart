@@ -42,7 +42,7 @@ class _AccountPageState extends State<AccountPage> {
 
     final nombreCtrl = TextEditingController(text: ap.account!.nombre ?? '');
     final apellidoCtrl = TextEditingController(text: ap.account!.apellido ?? '');
-    final correoCtrl = TextEditingController(text: ap.account!.email ?? '');
+    final celularCtrl = TextEditingController(text: ap.account!.celular ?? ''); // CAMBIO: ahora celular
     final formKey = GlobalKey<FormState>();
     bool saving = false;
 
@@ -81,14 +81,15 @@ class _AccountPageState extends State<AccountPage> {
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
-                        controller: correoCtrl,
-                        decoration: const InputDecoration(labelText: 'Correo'),
-                        keyboardType: TextInputType.emailAddress,
+                        controller: celularCtrl,
+                        decoration: const InputDecoration(labelText: 'Celular'),
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.done,
                         validator: (v) {
                           final s = v?.trim() ?? '';
                           if (s.isEmpty) return 'Requerido';
-                          final ok = RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(s);
-                          return ok ? null : 'Correo inválido';
+                          if (!RegExp(r'^[0-9]{8,15}$').hasMatch(s)) return 'Solo dígitos (8-15)';
+                          return null;
                         },
                       ),
                       const SizedBox(height: 16),
@@ -114,7 +115,7 @@ class _AccountPageState extends State<AccountPage> {
                                         id: ap.account!.id!,
                                         nombre: nombreCtrl.text,
                                         apellido: apellidoCtrl.text,
-                                        correo: correoCtrl.text,
+                                        celular: celularCtrl.text, // CAMBIO
                                       );
                                       setState(() => saving = false);
 
