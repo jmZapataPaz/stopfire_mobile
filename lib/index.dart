@@ -19,3 +19,10 @@ export 'package:stopfire_mobile/features/register/data/repositories/register_rep
 export 'package:stopfire_mobile/features/register/domain/usecases/start_registration_usecase.dart';
 export 'package:stopfire_mobile/features/register/domain/usecases/verify_registration_usecase.dart';
 export 'package:stopfire_mobile/features/register/presentation/state/register_provider.dart';
+export 'features/auth/data/datasources/password_recover_remote_data_source.dart';
+export 'features/auth/data/repositories/password_recover_repository_impl.dart';
+export 'features/auth/domain/usecases/start_password_recover_usecase.dart';
+export 'features/auth/domain/usecases/verify_password_recover_usecase.dart';
+export 'features/auth/presentation/state/password_recover_provider.dart';
+export 'features/auth/presentation/pages/forgot_password_email_page.dart';
+export 'features/auth/presentation/pages/forgot_password_verify_page.dart';

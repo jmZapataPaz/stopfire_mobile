@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stopfire_mobile/index.dart';
@@ -33,6 +32,10 @@ void main() async {
   final reportRepository = ReportRepositoryImpl(remote: reportRemote);
   final createReportUseCase = CreateReportUseCase(reportRepository);
   final getAcceptedReportsUseCase = GetAcceptedReportsUseCase(reportRepository);
+  final pwdRemote = PasswordRecoverRemoteDataSource(httpClient);
+  final pwdRepository = PasswordRecoverRepositoryImpl(remote: pwdRemote);
+  final startPwdRecoverUseCase = StartPasswordRecoverUseCase(pwdRepository);
+  final verifyPwdRecoverUseCase = VerifyPasswordRecoverUseCase(pwdRepository);
 
   runApp(MainApp(
     repository: repository,
@@ -43,6 +46,8 @@ void main() async {
     verifyRegUseCase: verifyRegUseCase,
     createReportUseCase: createReportUseCase,
     getAcceptedReportsUseCase: getAcceptedReportsUseCase,
+    startPwdRecoverUseCase: startPwdRecoverUseCase,
+    verifyPwdRecoverUseCase: verifyPwdRecoverUseCase,
   ));
 }
 
@@ -55,6 +60,8 @@ class MainApp extends StatelessWidget {
   final VerifyRegistrationUseCase verifyRegUseCase;
   final CreateReportUseCase createReportUseCase;
   final GetAcceptedReportsUseCase getAcceptedReportsUseCase;
+  final StartPasswordRecoverUseCase startPwdRecoverUseCase;
+  final VerifyPasswordRecoverUseCase verifyPwdRecoverUseCase;
 
   const MainApp({
     super.key,
@@ -66,6 +73,8 @@ class MainApp extends StatelessWidget {
     required this.verifyRegUseCase,
     required this.createReportUseCase,
     required this.getAcceptedReportsUseCase,
+    required this.startPwdRecoverUseCase,
+    required this.verifyPwdRecoverUseCase,
   });
 
   @override
@@ -91,6 +100,12 @@ class MainApp extends StatelessWidget {
           create: (_) => ReportProvider(
             createReportUseCase: createReportUseCase,
             getAcceptedReportsUseCase: getAcceptedReportsUseCase,
+          ),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => PasswordRecoverProvider(
+            startUseCase: startPwdRecoverUseCase,
+            verifyUseCase: verifyPwdRecoverUseCase,
           ),
         ),
       ],
