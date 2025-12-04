@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +19,23 @@ class _ForgotPasswordVerifyPageState extends State<ForgotPasswordVerifyPage> {
   final _pass2Ctrl = TextEditingController();
   bool _showPass = false;
   bool _showPass2 = false;
+
+  String _cleanError(String raw) {
+    final s = raw.trim();
+    final prefixMatch = RegExp(r'^HTTP\s+\d{3}:\s*').firstMatch(s);
+    final noPrefix = prefixMatch != null ? s.substring(prefixMatch.end).trim() : s;
+
+    try {
+      if (noPrefix.startsWith('{')) {
+        final map = (const JsonDecoder()).convert(noPrefix) as Map;
+        final m = map['mensaje'];
+        if (m is String && m.trim().isNotEmpty) return m.trim();
+      }
+    } catch (_) {}
+    final quoted = RegExp(r'^\{?\s*"?mensaje"?\s*:\s*"([^"]+)"\s*\}?$').firstMatch(noPrefix);
+    if (quoted != null) return quoted.group(1)!.trim();
+    return noPrefix;
+  }
 
   @override
   void dispose() {
@@ -117,7 +136,7 @@ class _ForgotPasswordVerifyPageState extends State<ForgotPasswordVerifyPage> {
                       const SizedBox(height: 16),
                       if (prov.error != null)
                         Text(
-                          prov.error!,
+                          _cleanError(prov.error!),
                           style: const TextStyle(color: Colors.red, fontSize: 14, fontWeight: FontWeight.w600),
                         ),
                       const SizedBox(height: 24),

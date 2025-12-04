@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stopfire_mobile/features/stations/presentation/state/bombero_estacion_provider.dart';
@@ -25,7 +27,7 @@ class _Body extends StatelessWidget {
     final p = context.watch<BomberoEstacionProvider>();
     return Scaffold(
       appBar: AppBar(title: const Text('Estación')),
-      bottomNavigationBar: const AppBottomNavBar(selectedIndex: 1),
+      bottomNavigationBar: const AppBottomNavBar(selectedIndex: 2),
       body: Column(
         children: [
           Expanded(
@@ -35,7 +37,7 @@ class _Body extends StatelessWidget {
                     ? Center(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Text(p.error!, textAlign: TextAlign.center),
+                          child: Text(_cleanError(p.error!), textAlign: TextAlign.center),
                         ),
                       )
                     : p.estacion == null
@@ -175,6 +177,22 @@ class _Body extends StatelessWidget {
         Text(value, style: const TextStyle(fontSize: 16)),
       ],
     );
+  }
+
+  String _cleanError(String raw) {
+    final s = raw.trim();
+    final prefix = RegExp(r'^HTTP\s+\d{3}:\s*').firstMatch(s);
+    final noPrefix = prefix != null ? s.substring(prefix.end).trim() : s;
+    try {
+      if (noPrefix.startsWith('{')) {
+        final map = (const JsonDecoder()).convert(noPrefix) as Map;
+        final m = map['mensaje'];
+        if (m is String && m.trim().isNotEmpty) return m.trim();
+      }
+    } catch (_) {}
+    final quoted = RegExp(r'^\{?\s*"?mensaje"?\s*:\s*"([^"]+)"\s*\}?$').firstMatch(noPrefix);
+    if (quoted != null) return quoted.group(1)!.trim();
+    return noPrefix;
   }
 
 }

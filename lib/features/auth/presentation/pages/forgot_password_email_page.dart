@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stopfire_mobile/features/auth/presentation/pages/forgot_password_verify_page.dart';
@@ -13,6 +15,23 @@ class ForgotPasswordEmailPage extends StatefulWidget {
 class _ForgotPasswordEmailPageState extends State<ForgotPasswordEmailPage> {
   final _formKey = GlobalKey<FormState>();
   final _correoCtrl = TextEditingController();
+
+  String _cleanError(String raw) {
+    final s = raw.trim();
+    final prefix = RegExp(r'^HTTP\s+\d{3}:\s*').firstMatch(s);
+    final noPrefix = prefix != null ? s.substring(prefix.end).trim() : s;
+
+    try {
+      if (noPrefix.startsWith('{')) {
+        final map = (const JsonDecoder()).convert(noPrefix) as Map;
+        final m = map['mensaje'];
+        if (m is String && m.trim().isNotEmpty) return m.trim();
+      }
+    } catch (_) {}
+    final m2 = RegExp(r'^\{?\s*"?mensaje"?\s*:\s*"([^"]+)"\s*\}?$').firstMatch(noPrefix);
+    if (m2 != null) return m2.group(1)!.trim();
+    return noPrefix;
+  }
 
   @override
   void dispose() {
@@ -71,7 +90,7 @@ class _ForgotPasswordEmailPageState extends State<ForgotPasswordEmailPage> {
                       const SizedBox(height: 16),
                       if (prov.error != null)
                         Text(
-                          prov.error!,
+                          _cleanError(prov.error!),
                           style: const TextStyle(color: Colors.red, fontSize: 14, fontWeight: FontWeight.w600),
                         ),
                       const SizedBox(height: 24),

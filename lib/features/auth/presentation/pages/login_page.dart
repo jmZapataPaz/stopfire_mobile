@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stopfire_mobile/features/auth/presentation/state/auth_provider.dart';
@@ -37,7 +39,7 @@ class _LoginPageState extends State<LoginPage> {
         MaterialPageRoute(builder: (_) => StationsMapPage()),
       );
     } else {
-      final msg = auth.error ?? 'Error al iniciar sesión';
+      final msg = _cleanError(auth.error ?? 'Error al iniciar sesión');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg)),
       );
@@ -45,10 +47,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _onLoginPressed() {
-    // Aquí puedes agregar la lógica para el inicio de sesión
-    // Por ahora, solo imprimiremos los valores en la consola
-    print('Correo: ${_correoCtrl.text}');
-    print('Contraseña: ${_passCtrl.text}');
+
   }
 
   @override
@@ -153,7 +152,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         if (auth.error != null) ...[
                           const SizedBox(height: 12),
-                          Text(auth.error!, style: const TextStyle(color: Colors.red)),
+                          Text(_cleanError(auth.error!), style: const TextStyle(color: Colors.red)),
                         ],
                       ],
                     ),
@@ -165,5 +164,25 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ),
     );
+  }
+
+  String _cleanError(String raw) {
+    final s = raw.trim();
+    final prefixMatch = RegExp(r'^HTTP\s+\d{3}:\s*').firstMatch(s);
+    final noPrefix = prefixMatch != null ? s.substring(prefixMatch.end).trim() : s;
+    try {
+      if (noPrefix.startsWith('{')) {
+        final map = Map<String, dynamic>.from(
+          (const JsonDecoder()).convert(noPrefix) as Map,
+        );
+        final m = map['mensaje'];
+        if (m is String && m.trim().isNotEmpty) return m.trim();
+      }
+    } catch (_) {
+    }
+    final quoted = RegExp(r'^\{?\s*"?mensaje"?\s*:\s*"([^"]+)"\s*\}?$').firstMatch(noPrefix);
+    if (quoted != null) return quoted.group(1)!.trim();
+
+    return noPrefix;
   }
 }

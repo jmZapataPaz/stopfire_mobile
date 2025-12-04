@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stopfire_mobile/core/config/app_config.dart';
@@ -153,6 +155,22 @@ class _AccountPageState extends State<AccountPage> {
     });
   }
 
+  String _cleanError(String raw) {
+    final s = raw.trim();
+    final prefix = RegExp(r'^HTTP\s+\d{3}:\s*').firstMatch(s);
+    final noPrefix = prefix != null ? s.substring(prefix.end).trim() : s;
+    try {
+      if (noPrefix.startsWith('{')) {
+        final map = (const JsonDecoder()).convert(noPrefix) as Map;
+        final m = map['mensaje'];
+        if (m is String && m.trim().isNotEmpty) return m.trim();
+      }
+    } catch (_) {}
+    final quoted = RegExp(r'^\{?\s*"?mensaje"?\s*:\s*"([^"]+)"\s*\}?$').firstMatch(noPrefix);
+    if (quoted != null) return quoted.group(1)!.trim();
+    return noPrefix;
+  }
+
   @override
   Widget build(BuildContext context) {
     final ap = context.watch<AccountProvider>();
@@ -162,7 +180,7 @@ class _AccountPageState extends State<AccountPage> {
       body: ap.loading
           ? const Center(child: CircularProgressIndicator())
           : ap.error != null
-              ? Center(child: Text(ap.error!, style: const TextStyle(color: Colors.red)))
+              ? Center(child: Text(_cleanError(ap.error!), style: const TextStyle(color: Colors.red)))
               : ap.account == null
                   ? const Center(child: Text('Sin datos'))
                   : ListView(

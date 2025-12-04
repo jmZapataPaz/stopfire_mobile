@@ -4,6 +4,7 @@ import 'package:stopfire_mobile/features/auth/presentation/state/auth_provider.d
 import 'package:stopfire_mobile/features/shared/widgets/app_bottom_nav_bar.dart';
 import 'package:stopfire_mobile/features/stations/presentation/state/citizen_stations_provider.dart';
 import 'package:stopfire_mobile/features/stations/presentation/pages/stations_map_page.dart';
+import 'dart:convert';
 
 class CitizenStationsPage extends StatelessWidget {
   const CitizenStationsPage({super.key});
@@ -20,7 +21,7 @@ class CitizenStationsPage extends StatelessWidget {
           builder: (context, p, _) {
             if (p.loading) return const Center(child: CircularProgressIndicator());
             if (p.error != null) {
-              return Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(p.error!, textAlign: TextAlign.center)));
+              return Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(_cleanError(p.error!), textAlign: TextAlign.center)));
             }
             if (p.estaciones.isEmpty) {
               return const Center(child: Text('Sin estaciones'));
@@ -84,5 +85,21 @@ class CitizenStationsPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _cleanError(String raw) {
+    final s = raw.trim();
+    final prefix = RegExp(r'^HTTP\s+\d{3}:\s*').firstMatch(s);
+    final noPrefix = prefix != null ? s.substring(prefix.end).trim() : s;
+    try {
+      if (noPrefix.startsWith('{')) {
+        final map = (const JsonDecoder()).convert(noPrefix) as Map;
+        final m = map['mensaje'];
+        if (m is String && m.trim().isNotEmpty) return m.trim();
+      }
+    } catch (_) {}
+    final quoted = RegExp(r'^\{?\s*"?mensaje"?\s*:\s*"([^"]+)"\s*\}?$').firstMatch(noPrefix);
+    if (quoted != null) return quoted.group(1)!.trim();
+    return noPrefix;
   }
 }

@@ -51,7 +51,7 @@ class CreateReportSheet extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             if (provider.error != null)
-              Text(provider.error!, style: const TextStyle(color: Colors.red)),
+              Text(_cleanError(provider.error!), style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
@@ -188,3 +188,19 @@ class _PhotoBox extends StatelessWidget {
     );
   }
 }
+
+String _cleanError(String raw) {
+    final s = raw.trim();
+    final prefix = RegExp(r'^HTTP\s+\d{3}:\s*').firstMatch(s);
+    final noPrefix = prefix != null ? s.substring(prefix.end).trim() : s;
+    try {
+      if (noPrefix.startsWith('{')) {
+        final map = (const JsonDecoder()).convert(noPrefix) as Map;
+        final m = map['mensaje'];
+        if (m is String && m.trim().isNotEmpty) return m.trim();
+      }
+    } catch (_) {}
+    final quoted = RegExp(r'^\{?\s*"?mensaje"?\s*:\s*"([^"]+)"\s*\}?$').firstMatch(noPrefix);
+    if (quoted != null) return quoted.group(1)!.trim();
+    return noPrefix;
+  }
