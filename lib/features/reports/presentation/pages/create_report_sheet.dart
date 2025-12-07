@@ -118,15 +118,41 @@ class CreateReportSheet extends StatelessWidget {
                                   'Authorization': 'Bearer $token',
                                   'Accept': 'application/json',
                                 });
+                                
                                 if (cRes.statusCode >= 200 && cRes.statusCode < 300) {
                                   if (context.mounted) {
                                     Navigator.of(context).pop(true); 
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gracias, confirmaste el incidente.')));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Gracias, confirmaste el incidente.'))
+                                    );
                                   }
-                                  return; 
+                                  return;
+                                } else if (cRes.statusCode == 409) {
+                                  // Conflicto: ya confirmó anteriormente
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop(true);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Ya confirmaste este incidente. Aguarda la llegada de los bomberos.'),
+                                        duration: Duration(seconds: 4),
+                                      )
+                                    );
+                                  }
+                                  return;
                                 } else {
                                   if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al confirmar: ${cRes.statusCode}')));
+                                    // Intentar leer el mensaje del servidor
+                                    String errorMsg = 'Error al confirmar: ${cRes.statusCode}';
+                                    try {
+                                      final errorBody = jsonDecode(cRes.body);
+                                      if (errorBody is Map && errorBody.containsKey('mensaje')) {
+                                        errorMsg = errorBody['mensaje'];
+                                      }
+                                    } catch (_) {}
+                                    
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(errorMsg))
+                                    );
                                   }
                                   return;
                                 }

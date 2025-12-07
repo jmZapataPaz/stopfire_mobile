@@ -268,6 +268,44 @@ class _StationsMapPageState extends State<StationsMapPage> {
       final myLat = pos.latitude;
       final myLon = pos.longitude;
       final rp = context.read<ReportProvider>();
+      Future<bool> _verificarSiYaConfirmo(int reporteId) async {
+        final base = AppConfig.baseUrl.replaceAll(RegExp(r'\/$'), '');
+        final uri = Uri.parse('$base/api/Usuarios/reportes/$reporteId/verificar-confirmacion');
+        
+        try {
+          final res = await http.get(uri, headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          });
+          
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            final data = jsonDecode(res.body);
+            final yaConfirmo = data['yaConfirmo'] ?? false;
+            
+            if (yaConfirmo && mounted) {
+              await showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('Ya confirmaste'),
+                  content: const Text('Ya confirmaste este incidente anteriormente. Aguarda la llegada de los bomberos.'),
+                  actions: [
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cerrar'),
+                    ),
+                  ],
+                ),
+              );
+              return true; 
+            }
+            return false; 
+          }
+        } catch (e) {
+          debugPrint('[VERIFICAR_CONFIRMACION][ERR] $e');
+        }
+        return false;
+      }
+      
       Future<bool> _confirmById(int reporteId) async {
         final base = AppConfig.baseUrl.replaceAll(RegExp(r'\/$'), '');
         final cUri = Uri.parse('$base/api/Usuarios/reportes/$reporteId/confirm');
@@ -286,6 +324,17 @@ class _StationsMapPageState extends State<StationsMapPage> {
           }
           return true;
         }
+        if (cRes.statusCode == 409) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Ya confirmaste este incidente. Aguarda la llegada de los bomberos.'),
+                duration: Duration(seconds: 4),
+              )
+            );
+          }
+          return true;
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error al confirmar: ${cRes.statusCode}')),
@@ -293,10 +342,13 @@ class _StationsMapPageState extends State<StationsMapPage> {
         }
         return true;
       }
+      
       if (rp.perimeterLat != null && rp.perimeterLon != null && rp.perimeterReportId != null) {
         final dist = Geolocator.distanceBetween(myLat, myLon, rp.perimeterLat!, rp.perimeterLon!);
         debugPrint('[PERIMETER] dist=${dist.toStringAsFixed(1)}m id=${rp.perimeterReportId}');
         if (dist <= rp.perimeterRadiusMeters) {
+          final yaConfirmo = await _verificarSiYaConfirmo(rp.perimeterReportId!);
+          if (yaConfirmo) return true; 
           final ok = await showDialog<bool>(
             context: context,
             builder: (_) => AlertDialog(
@@ -325,6 +377,8 @@ class _StationsMapPageState extends State<StationsMapPage> {
         if (d < best) { best = d; nearest = r; }
       }
       if (nearest != null && best <= (rp.perimeterRadiusMeters)) {
+        final yaConfirmo = await _verificarSiYaConfirmo(nearest.id);
+        if (yaConfirmo) return true; 
         final ok = await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
